@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreateBusinessController;
+use App\Http\Controllers\ReservationController;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -47,4 +48,12 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware(['auth:sanctum', 'verified'])->group(function () {
     Route::get('/profile', [AuthController::class, 'profile']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    
+    // Reservation routes (protected by auth:sanctum middleware)
+    Route::middleware('auth:sanctum')->group(function () {
+        // Reservation routes
+        Route::get('/reservations', [ReservationController::class, 'index']);
+        Route::post('/reservations', [ReservationController::class, 'store']);
+        Route::put('/reservations/{id}/cancel', [ReservationController::class, 'cancel']);
+    });
 });
