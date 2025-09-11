@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Events\BusinessCreated;
 
 class Business extends Model
 {
@@ -22,6 +23,7 @@ class Business extends Model
         'media_type',
         'cover_image',
         'gallery',
+        'status',
     ];
 
     protected $casts = [
@@ -33,5 +35,16 @@ class Business extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Business $business) {
+            // Broadcast business created event
+            event(new BusinessCreated($business));
+        });
     }
 }

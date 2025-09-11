@@ -25,5 +25,7 @@ class Kernel extends HttpKernel
     ];
 
     // Individual route middleware
-
+    protected $middlewareAliases = [
+        'super_admin' => \App\Http\Middleware\SuperAdminMiddleware::class,
+    ];
 }

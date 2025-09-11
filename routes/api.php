@@ -2,6 +2,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreateBusinessController;
 use App\Http\Controllers\ReservationController;
+use App\Http\Controllers\SuperAdminController;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
@@ -55,5 +56,16 @@ Route::middleware(['auth:sanctum', 'verified'])->group(function () {
         Route::get('/reservations', [ReservationController::class, 'index']);
         Route::post('/reservations', [ReservationController::class, 'store']);
         Route::put('/reservations/{id}/cancel', [ReservationController::class, 'cancel']);
+    });
+    
+    // Super Admin routes with middleware protection
+    Route::prefix('admin')->middleware(['auth:sanctum', \App\Http\Middleware\SuperAdminMiddleware::class])->group(function () {
+        Route::get('/users', [SuperAdminController::class, 'getUsers']);
+        Route::get('/businesses', [SuperAdminController::class, 'getBusinesses']);
+        Route::get('/reservations', [SuperAdminController::class, 'getReservations']);
+        Route::get('/dashboard', [SuperAdminController::class, 'dashboard']);
+        Route::put('/businesses/{id}/approve', [SuperAdminController::class, 'approveBusiness']);
+        Route::put('/businesses/{id}/reject', [SuperAdminController::class, 'rejectBusiness']);
+        Route::put('/reservations/{id}/cancel', [SuperAdminController::class, 'cancelReservation']);
     });
 });
