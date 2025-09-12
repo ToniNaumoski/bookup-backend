@@ -166,4 +166,160 @@ class SuperAdminController extends Controller
             'reservation' => $reservation
         ]);
     }
+
+    /**
+     * Review a business with remarks and optional field updates
+     */
+    public function reviewBusiness(Request $request, $id)
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $request->validate([
+            'action' => 'required|in:approve,reject,request_changes',
+            'remarks' => 'nullable|string|max:1000',
+            'message' => 'nullable|string|max:500',
+            'updated_fields' => 'nullable|array',
+            'updated_fields.*' => 'string'
+        ]);
+
+        $business = Business::findOrFail($id);
+        $admin = Auth::user();
+
+        // Update business fields if provided
+        if ($request->has('updated_fields') && is_array($request->updated_fields)) {
+            foreach ($request->updated_fields as $field => $value) {
+                if (in_array($field, ['name', 'description', 'main_category', 'sub_category', 'city', 'street', 'street_number'])) {
+                    $business->$field = $value;
+                }
+            }
+        }
+
+        // Update review status and admin info
+        $business->review_status = $request->action;
+        $business->reviewed_by = $admin->id;
+        $business->last_reviewed_at = now();
+
+        // Add admin remarks
+        if ($request->remarks) {
+            $business->admin_remarks = $request->remarks;
+        }
+
+        // Add admin message if provided
+        if ($request->message) {
+            $messages = $business->admin_messages ?? [];
+            $messages[] = [
+                'message' => $request->message,
+                'type' => $request->action,
+                'admin_id' => $admin->id,
+                'admin_name' => $admin->name,
+                'created_at' => now()->toISOString()
+            ];
+            $business->admin_messages = $messages;
+        }
+
+        // Update main status based on action
+        if ($request->action === 'approve') {
+            $business->status = 'approved';
+        } elseif ($request->action === 'reject') {
+            $business->status = 'rejected';
+        } elseif ($request->action === 'request_changes') {
+            $business->status = 'pending';
+            $business->review_status = 'needs_revision';
+        }
+
+        $business->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Business review completed successfully.',
+            'business' => $business->load(['user', 'reviewer'])
+        ]);
+    }
+
+    /**
+     * Get detailed business information for admin review
+     */
+    public function getBusinessForReview($id)
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $business = Business::with(['user', 'reviewer', 'reservations'])->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'business' => $business
+        ]);
+    }
+
+    /**
+     * Get businesses pending review
+     */
+    public function getPendingReviews()
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $businesses = Business::with(['user', 'reviewer'])
+            ->whereIn('review_status', ['pending', 'needs_revision'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'businesses' => $businesses
+        ]);
+    }
+
+    /**
+     * Send message to business owner
+     */
+    public function sendMessageToBusiness(Request $request, $id)
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $request->validate([
+            'message' => 'required|string|max:500',
+            'type' => 'required|in:info,warning,error'
+        ]);
+
+        $business = Business::findOrFail($id);
+        $admin = Auth::user();
+
+        $messages = $business->admin_messages ?? [];
+        $messages[] = [
+            'message' => $request->message,
+            'type' => $request->type,
+            'admin_id' => $admin->id,
+            'admin_name' => $admin->name,
+            'created_at' => now()->toISOString()
+        ];
+
+        $business->admin_messages = $messages;
+        $business->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Message sent to business owner successfully.',
+            'business' => $business
+        ]);
+    }
 }

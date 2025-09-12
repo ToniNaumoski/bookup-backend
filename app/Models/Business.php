@@ -24,17 +24,42 @@ class Business extends Model
         'cover_image',
         'gallery',
         'status',
+        'admin_remarks',
+        'admin_messages',
+        'read_messages',
+        'review_status',
+        'last_reviewed_at',
+        'reviewed_by',
     ];
 
     protected $casts = [
         'working_hours' => 'array',
         'gallery' => 'array',
+        'admin_messages' => 'array',
+        'read_messages' => 'array',
+        'last_reviewed_at' => 'datetime',
     ];
 
     // Врска со User
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the reservations for the business.
+     */
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
+    /**
+     * Get the admin user who reviewed this business.
+     */
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     /**
