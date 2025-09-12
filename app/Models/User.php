@@ -25,6 +25,11 @@ class User extends Authenticatable implements MustVerifyEmail
         'phone',
         'password',
         'role',
+        'status',
+        'blocked_at',
+        'block_reason',
+        'blocked_by',
+        'admin_messages',
     ];
 
     /**
@@ -47,6 +52,32 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'blocked_at' => 'datetime',
+            'admin_messages' => 'array',
         ];
+    }
+
+    /**
+     * Get the user who blocked this user
+     */
+    public function blockedBy()
+    {
+        return $this->belongsTo(User::class, 'blocked_by');
+    }
+
+    /**
+     * Get the business owned by this user
+     */
+    public function business()
+    {
+        return $this->hasOne(\App\Models\Business::class);
+    }
+
+    /**
+     * Get reservations made by this user
+     */
+    public function reservations()
+    {
+        return $this->hasMany(\App\Models\Reservation::class);
     }
 }

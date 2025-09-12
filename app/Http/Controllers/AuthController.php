@@ -132,7 +132,7 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required|string',
         ]);
-    
+
         // Attempt login
         if (!Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             throw ValidationException::withMessages([
@@ -140,8 +140,17 @@ class AuthController extends Controller
                 'password' => ['Invalid credentials'],
             ]);
         }
-    
+
         $user = Auth::user(); // Get the authenticated user
+
+        // Check if user account is active
+        if ($user->status === 'blocked' || $user->status === 'suspended') {
+            Auth::logout(); // Log out the user
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been ' . $user->status . '. Please contact support.'],
+            ]);
+        }
+
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
@@ -154,7 +163,18 @@ class AuthController extends Controller
     // Get authenticated user profile
     public function profile(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'role' => $user->role,
+            'status' => $user->status,
+            'email_verified_at' => $user->email_verified_at,
+            'created_at' => $user->created_at,
+            'admin_messages' => $user->admin_messages ?? []
+        ]);
     }
 
     // Logout user (delete current token)

@@ -100,7 +100,7 @@ class PublicBusinessController extends Controller
     }
 
     /**
-     * Get available time slots for a business on a specific date
+     * Get available time slots for a business on a specific date (legacy method)
      */
     public function getAvailableSlots($id, Request $request)
     {
@@ -231,6 +231,35 @@ class PublicBusinessController extends Controller
             'available_slots' => array_values($availableSlots),
             'working_hours' => $dayHours,
             'booked_slots' => $existingReservations
+        ]);
+    }
+
+    /**
+     * Get all available slots created by business owner
+     */
+    public function getAllAvailableSlots($id)
+    {
+        $business = Business::findOrFail($id);
+
+        // Check if business is approved
+        if ($business->status !== 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This business is not available'
+            ], 404);
+        }
+
+        // Get all available slots created by the business owner
+        $availableSlots = \App\Models\Reservation::where('business_id', $business->id)
+            ->where('status', 'available')
+            ->where('user_id', $business->user_id) // Only slots created by business owner
+            ->orderBy('date', 'asc')
+            ->orderBy('time', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'available_slots' => $availableSlots
         ]);
     }
 }

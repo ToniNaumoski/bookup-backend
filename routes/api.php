@@ -38,6 +38,8 @@ Route::get('/businesses/approved', [PublicBusinessController::class, 'getApprove
 Route::get('/businesses/filters', [PublicBusinessController::class, 'getFilters']);
 Route::get('/businesses/{id}', [PublicBusinessController::class, 'getBusiness']);
 Route::get('/businesses/{id}/available-slots', [PublicBusinessController::class, 'getAvailableSlots']);
+Route::get('/businesses/{id}/all-available-slots', [PublicBusinessController::class, 'getAllAvailableSlots']);
+Route::get('/reservations/available', [ReservationController::class, 'available']);
 // Route::middleware(['auth:sanctum','verified'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     // Get business form (returns business data if exists, else categories & cities)
@@ -67,11 +69,21 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::delete('/reservations/{id}', [ReservationController::class, 'destroy']);
     
     // Super Admin routes with middleware protection
-    Route::prefix('admin')->middleware(['auth:sanctum', \App\Http\Middleware\SuperAdminMiddleware::class])->group(function () {
+    Route::prefix('admin')->middleware(['auth:sanctum'])->group(function () {
         Route::get('/users', [SuperAdminController::class, 'getUsers']);
         Route::get('/businesses', [SuperAdminController::class, 'getBusinesses']);
         Route::get('/reservations', [SuperAdminController::class, 'getReservations']);
         Route::get('/dashboard', [SuperAdminController::class, 'dashboard']);
+        Route::get('/stats', [SuperAdminController::class, 'getDashboardStats']);
+
+        // User management routes
+        Route::get('/users/{id}', [SuperAdminController::class, 'getUserDetails']);
+        Route::put('/users/{id}/block', [SuperAdminController::class, 'blockUser']);
+        Route::put('/users/{id}/unblock', [SuperAdminController::class, 'unblockUser']);
+        Route::put('/users/{id}/suspend', [SuperAdminController::class, 'suspendUser']);
+        Route::put('/users/{id}/role', [SuperAdminController::class, 'updateUserRole']);
+        Route::get('/users/status/{status}', [SuperAdminController::class, 'getUsersByStatus']);
+        Route::post('/users/{id}/message', [SuperAdminController::class, 'sendMessageToUser']);
 
         // Business review routes
         Route::get('/businesses/{id}/review', [SuperAdminController::class, 'getBusinessForReview']);
