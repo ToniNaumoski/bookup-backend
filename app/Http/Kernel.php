@@ -8,7 +8,7 @@ class Kernel extends HttpKernel
 {
     // Global HTTP middleware stack
     protected $middleware = [
-        // ...
+        \Fruitcake\Cors\HandleCors::class,
     ];
 
     // Route middleware groups

@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
         // Run the SuperAdminSeeder
         $this->call([
             SuperAdminSeeder::class,
+            CategorySeeder::class,
+            CitiesSeeder::class,
         ]);
     }
 }
