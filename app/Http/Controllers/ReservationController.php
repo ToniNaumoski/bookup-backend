@@ -7,6 +7,8 @@ use App\Models\Business;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Events\ReservationCreated;
+
 
 class ReservationController extends Controller
 {
@@ -163,7 +165,9 @@ class ReservationController extends Controller
             $availableSlot->user_id = $user->id;
             $availableSlot->status = 'pending';
             $availableSlot->save();
-
+            $reservation = $availableSlot->load(['user', 'business']);
+            event(new ReservationCreated($reservation));
+          //  event(new ReservationCreated($availableSlot));
             return response()->json([
                 'success' => true,
                 'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',

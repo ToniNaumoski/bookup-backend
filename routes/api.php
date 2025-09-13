@@ -8,6 +8,8 @@ use App\Http\Controllers\SuperAdminController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
+
 
 // Verify email callback
 // Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
@@ -20,6 +22,11 @@ use Illuminate\Http\Request;
 //     $request->user()->sendEmailVerificationNotification();
 //     return response()->json(['message' => 'Verification link sent!']);
 // })->middleware(['auth:sanctum']);
+
+Broadcast::channel('admin-notifications', function ($user) {
+    // Return true if the authenticated user is an admin/business owner
+    return $user->is_admin || ($user->is_business_owner ?? false);
+});
 
 Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
     $user = \App\Models\User::findOrFail($id);
