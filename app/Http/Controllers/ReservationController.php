@@ -142,53 +142,21 @@ class ReservationController extends Controller
             ]);
         } else {
             // Regular user booking
-        //     // Check if there's an available slot for this time
-        //     $availableSlot = Reservation::where('business_id', $business->id)
-        //         ->where('date', $request->date)
-        //         ->where('time', $request->time)
-        //         ->where('status', 'available')
-        //         ->first();
 
-        //     if (!$availableSlot) {
-        //         return response()->json([
-        //             'success' => false,
-        //             'message' => 'Овој термин не е достапен!'
-        //         ], 422);
-        //     }
+            // Check if the user has already made 2 reservations today
+            $reservationCount = Reservation::where('user_id', $user->id)
+                ->where('date', $request->date)
+                ->count();
 
-        //     // Check if user already has a reservation for this time
-        //     $existingReservation = Reservation::where('business_id', $business->id)
-        //         ->where('date', $request->date)
-        //         ->where('time', $request->time)
-        //         ->where('user_id', $user->id)
-        //         ->whereIn('status', ['pending', 'confirmed'])
-        //         ->first();
-
-        //     if ($existingReservation) {
-        //         return response()->json([
-        //             'success' => false,
-        //             'message' => 'Веќе имате резервација за ова време!'
-        //         ], 422);
-        //     }
-
-        //     // Update the available slot to become a pending reservation
-        //     $availableSlot->user_id = $user->id;
-        //     $availableSlot->status = 'pending';
-        //     $availableSlot->save();
-        //     $reservation = $availableSlot->load(['user', 'business']);
-        //     event(new ReservationCreated($reservation));
-        //   //  event(new ReservationCreated($availableSlot));
-        //     return response()->json([
-        //         'success' => true,
-        //         'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
-        //         'reservation' => $availableSlot
-        //     ]);
-
-           // Regular user booking - SIMPLIFIED APPROACH
+            if ($reservationCount >= 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Масимален број на резервации се 2 во еден ден.'
+                ], 422);
+            }
     
     // Check if user already has a reservation for this exact time
-    $existingUserReservation = Reservation::where('business_id', $business->id)
-        ->where('date', $request->date)
+    $existingUserReservation = Reservation::where('date', $request->date)
         ->where('time', $request->time)
         ->where('user_id', $user->id)
         ->whereIn('status', ['pending', 'confirmed'])
@@ -202,8 +170,7 @@ class ReservationController extends Controller
     }
 
     // Check if this time slot is already taken by someone else
-    $existingReservation = Reservation::where('business_id', $business->id)
-        ->where('date', $request->date)
+    $existingReservation = Reservation::where('date', $request->date)
         ->where('time', $request->time)
         ->whereIn('status', ['pending', 'confirmed'])
         ->first();
@@ -223,6 +190,17 @@ class ReservationController extends Controller
         ->first();
 
     if ($availableSlot) {
+         // Check if the user has already made 2 reservations today
+         $reservationCount = Reservation::where('user_id', $user->id)
+             ->where('date', $request->date)
+             ->count();
+
+         if ($reservationCount >= 2) {
+             return response()->json([
+                 'success' => false,
+                 'message' => 'Масимален број на резервации се 2 во еден ден.'
+             ], 422);
+         }
         // Use the existing available slot
         $availableSlot->user_id = $user->id;
         $availableSlot->status = 'pending';
@@ -378,14 +356,31 @@ class ReservationController extends Controller
         $perPage = $request->get('per_page', 20);
         $page = $request->get('page', 1);
 
+        $user = Auth::user();
+
+        // Check if user has a business
+        $business = Business::where('user_id', $user->id)->first();
+
         // Get all available slots with business and user information
-        $availableSlots = Reservation::where('status', 'available')
+        $availableSlotsQuery = Reservation::where('status', 'available')
             ->with(['business', 'business.user'])
             ->whereHas('business', function($query) {
                 // Only show slots for approved businesses
                 $query->where('status', 'approved');
-            })
-            ->orderBy('date', 'asc')
+            });
+
+        // If user is not a business owner and has 2 or more reservations today, don't show available slots
+        if (!$business) {
+            $reservationCount = Reservation::where('user_id', $user->id)
+                ->where('date', $request->date)
+                ->count();
+
+            if ($reservationCount >= 2) {
+                $availableSlotsQuery->where('id', null); // Return empty result
+            }
+        }
+
+        $availableSlots = $availableSlotsQuery->orderBy('date', 'asc')
             ->orderBy('time', 'asc')
             ->paginate($perPage, ['*'], 'page', $page);
 
