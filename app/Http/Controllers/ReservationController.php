@@ -97,6 +97,16 @@ class ReservationController extends Controller
             ], 422);
         }
 
+          // Validate business hours for both business owners and regular users
+        if (!$this->isTimeWithinBusinessHours($request->date, $request->time, $business)) {
+            $dayOfWeek = date('l', strtotime($request->date)); // Get day name (Monday, Tuesday, etc.)
+            
+            return response()->json([
+                'success' => false,
+                'message' => "Избраното време не е во работните часови на бизнисот за {$dayOfWeek}. Ве молиме проверете ги работните часови и изберете друго време."
+            ], 422);
+        }
+
         // Check if user is a business owner
         $isBusinessOwner = $userBusiness && $userBusiness->id === $business->id;
 
@@ -132,47 +142,118 @@ class ReservationController extends Controller
             ]);
         } else {
             // Regular user booking
-            // Check if there's an available slot for this time
-            $availableSlot = Reservation::where('business_id', $business->id)
-                ->where('date', $request->date)
-                ->where('time', $request->time)
-                ->where('status', 'available')
-                ->first();
+        //     // Check if there's an available slot for this time
+        //     $availableSlot = Reservation::where('business_id', $business->id)
+        //         ->where('date', $request->date)
+        //         ->where('time', $request->time)
+        //         ->where('status', 'available')
+        //         ->first();
 
-            if (!$availableSlot) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Овој термин не е достапен!'
-                ], 422);
-            }
+        //     if (!$availableSlot) {
+        //         return response()->json([
+        //             'success' => false,
+        //             'message' => 'Овој термин не е достапен!'
+        //         ], 422);
+        //     }
 
-            // Check if user already has a reservation for this time
-            $existingReservation = Reservation::where('business_id', $business->id)
-                ->where('date', $request->date)
-                ->where('time', $request->time)
-                ->where('user_id', $user->id)
-                ->whereIn('status', ['pending', 'confirmed'])
-                ->first();
+        //     // Check if user already has a reservation for this time
+        //     $existingReservation = Reservation::where('business_id', $business->id)
+        //         ->where('date', $request->date)
+        //         ->where('time', $request->time)
+        //         ->where('user_id', $user->id)
+        //         ->whereIn('status', ['pending', 'confirmed'])
+        //         ->first();
 
-            if ($existingReservation) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Веќе имате резервација за ова време!'
-                ], 422);
-            }
+        //     if ($existingReservation) {
+        //         return response()->json([
+        //             'success' => false,
+        //             'message' => 'Веќе имате резервација за ова време!'
+        //         ], 422);
+        //     }
 
-            // Update the available slot to become a pending reservation
-            $availableSlot->user_id = $user->id;
-            $availableSlot->status = 'pending';
-            $availableSlot->save();
-            $reservation = $availableSlot->load(['user', 'business']);
-            event(new ReservationCreated($reservation));
-          //  event(new ReservationCreated($availableSlot));
-            return response()->json([
-                'success' => true,
-                'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
-                'reservation' => $availableSlot
-            ]);
+        //     // Update the available slot to become a pending reservation
+        //     $availableSlot->user_id = $user->id;
+        //     $availableSlot->status = 'pending';
+        //     $availableSlot->save();
+        //     $reservation = $availableSlot->load(['user', 'business']);
+        //     event(new ReservationCreated($reservation));
+        //   //  event(new ReservationCreated($availableSlot));
+        //     return response()->json([
+        //         'success' => true,
+        //         'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
+        //         'reservation' => $availableSlot
+        //     ]);
+
+           // Regular user booking - SIMPLIFIED APPROACH
+    
+    // Check if user already has a reservation for this exact time
+    $existingUserReservation = Reservation::where('business_id', $business->id)
+        ->where('date', $request->date)
+        ->where('time', $request->time)
+        ->where('user_id', $user->id)
+        ->whereIn('status', ['pending', 'confirmed'])
+        ->first();
+
+    if ($existingUserReservation) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Веќе имате резервација за ова време!'
+        ], 422);
+    }
+
+    // Check if this time slot is already taken by someone else
+    $existingReservation = Reservation::where('business_id', $business->id)
+        ->where('date', $request->date)
+        ->where('time', $request->time)
+        ->whereIn('status', ['pending', 'confirmed'])
+        ->first();
+
+    if ($existingReservation) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Овој термин е веќе зафатен од друг корисник!'
+        ], 422);
+    }
+
+    // Check if there's an available slot created by business owner
+    $availableSlot = Reservation::where('business_id', $business->id)
+        ->where('date', $request->date)
+        ->where('time', $request->time)
+        ->where('status', 'available')
+        ->first();
+
+    if ($availableSlot) {
+        // Use the existing available slot
+        $availableSlot->user_id = $user->id;
+        $availableSlot->status = 'pending';
+        $availableSlot->save();
+        $reservation = $availableSlot->load(['user', 'business']);
+        event(new ReservationCreated($reservation));
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
+            'reservation' => $availableSlot
+        ]);
+    } else {
+        // Create new direct reservation (no pre-slot required)
+        $reservation = Reservation::create([
+            'user_id' => $user->id,
+            'business_id' => $business->id,
+            'date' => $request->date,
+            'time' => $request->time,
+            'status' => 'pending'
+        ]);
+
+        $reservation = $reservation->load(['user', 'business']);
+        event(new ReservationCreated($reservation));
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
+            'reservation' => $reservation
+        ]);
+    }
         }
 
 
