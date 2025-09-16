@@ -33,6 +33,23 @@ class AuthController extends Controller
                 "min:8",
                 "regex:/^(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/"
             ],
+            "password_confirmation" => "required|same:password",
+        ], [
+            'name.required' => 'Name is required.',
+            'name.min' => 'Name must be at least 4 characters.',
+            'name.max' => 'Name must be at max of 20 characters.',
+            'email.required' => 'Email is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'email.unique' => 'This email is already registered.',
+            'email.regex' => 'Please enter a valid email address.',
+            'phone.required' => 'Phone is required.',
+            'phone.digits' => 'Please enter a valid phone number.',
+            'phone.regex' => 'Please enter a valid phone number.',
+            'password.required' => 'Password is required.',
+            'password.min' => 'Password must be at least 8 characters long.',
+            'password.regex' => 'Password must be at least 8 characters, include an uppercase letter and a symbol.',
+            'password_confirmation.required' => 'Confirmation is required.',
+            'password_confirmation.same' => 'Passwords do not match.',
         ]);
         
     
@@ -87,6 +104,23 @@ class AuthController extends Controller
                 "min:8",
                 "regex:/^(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/"
             ],
+            "password_confirmation" => "required|same:password",
+        ], [
+            'name.required' => 'Name is required.',
+            'name.min' => 'Name must be at least 4 characters.',
+            'name.max' => 'Name must be at max of 20 characters.',
+            'email.required' => 'Email is required.',
+            'email.email' => 'Please enter a valid email address.',
+            'email.unique' => 'This email is already registered.',
+            'email.regex' => 'Please enter a valid email address.',
+            'phone.required' => 'Phone is required.',
+            'phone.digits' => 'Please enter a valid phone number.',
+            'phone.regex' => 'Please enter a valid phone number.',
+            'password.required' => 'Password is required.',
+            'password.min' => 'Password must be at least 8 characters long.',
+            'password.regex' => 'Password must be at least 8 characters, include an uppercase letter and a symbol.',
+            'password_confirmation.required' => 'Confirmation is required.',
+            'password_confirmation.same' => 'Passwords do not match.',
         ]);
         
     
