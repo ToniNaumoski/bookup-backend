@@ -23,9 +23,9 @@ class CreateBusinessController extends Controller
         $business = Business::where('user_id', $user->id)->first();
 
        $categories = Category::whereNull('parent_id')
-            ->with('children')
-            ->get();
-        $cities = City::all();
+           ->with('children')
+           ->get();
+       $cities = City::with('municipalities')->get();
 
         if ($business) {
             return response()->json([
@@ -35,6 +35,7 @@ class CreateBusinessController extends Controller
                     'main_category' => $business->main_category,
                     'sub_category' => $business->sub_category,
                     'city' => $business->city,
+                    'municipality' => $business->municipality,
                     'street' => $business->street,
                     'street_number' => $business->street_number,
                     'working_hours' => $business->working_hours,
@@ -97,6 +98,7 @@ public function store(Request $request)
                 ->where('parent_id', $mainCategoryId),
         ],
         'city'   => ['required', Rule::exists('cities', 'name')],
+        'municipality' => ['required', Rule::exists('municipalities', 'name')],
         'street' => ['required', 'string', 'min:2', 'max:100'],
         'street_number' => ['required', 'string', 'min:1', 'max:10'],
 
@@ -124,6 +126,8 @@ public function store(Request $request)
         'sub_category.exists'  => 'Избраната подкатегорија не постои или не припаѓа на категоријата.',
         'city.required' => 'Градот е задолжителен.',
         'city.exists' => 'Избраниот град не постои.',
+        'municipality.required' => 'Општината е задолжителна.',
+        'municipality.exists' => 'Избраната општина не постои.',
         'street.required' => 'Улицата е задолжителна.',
         'street.min' => 'Името на улицата мора да има најмалку :min карактери.',
         'street.max' => 'Името на улицата не може да има повеќе од :max карактери.',
@@ -178,6 +182,7 @@ public function store(Request $request)
         'main_category' => $validated['main_category'],
         'sub_category'  => $validated['sub_category'],
         'city'          => $validated['city'],
+        'municipality'  => $validated['municipality'],
         'street'        => $validated['street'],
         'street_number' => $validated['street_number'],
         'working_hours' => json_encode($data['working_hours']), // store as JSON

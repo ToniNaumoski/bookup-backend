@@ -17,6 +17,7 @@ class Business extends Model
         'main_category',
         'sub_category',
         'city',
+        'municipality',
         'street',
         'street_number',
         'working_hours',

@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             SuperAdminSeeder::class,
             CategorySeeder::class,
             CitiesSeeder::class,
+            MunicipalitySeeder::class,
         ]);
     }
 }

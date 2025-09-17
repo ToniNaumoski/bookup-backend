@@ -23,6 +23,10 @@ class PublicBusinessController extends Controller
             $query->where('city', $request->city);
         }
 
+        if ($request->has('municipality') && $request->municipality) {
+            $query->where('municipality', $request->municipality);
+        }
+
         if ($request->has('category') && $request->category) {
             $query->where('main_category', $request->category);
         }
@@ -59,12 +63,12 @@ class PublicBusinessController extends Controller
      */
     public function getFilters()
     {
-        $cities = Business::where('status', 'approved')
-            ->whereNotNull('city')
-            ->distinct()
-            ->pluck('city')
-            ->sort()
-            ->values();
+        $cities = City::with('municipalities')->get()->map(function ($city) {
+            return [
+                'name' => $city->name,
+                'municipalities' => $city->municipalities->pluck('name')->sort()->values()
+            ];
+        });
 
         $categories = Business::where('status', 'approved')
             ->whereNotNull('main_category')
