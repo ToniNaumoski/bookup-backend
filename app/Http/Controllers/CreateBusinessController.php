@@ -55,111 +55,7 @@ class CreateBusinessController extends Controller
             ]);
         }
     }
-// public function store(Request $request)
-// {
-//     $user = Auth::user();
 
-//     if ($user->role !== 'business') {
-//         return response()->json(['error' => 'Недозволено'], 403);
-//     }
-
-//     // Use $data for validation
-//     $data = $request->all();
-
-//     // Decode working_hours JSON string to array
-//     if (isset($data['working_hours']) && is_string($data['working_hours'])) {
-//         $data['working_hours'] = json_decode($data['working_hours'], true);
-//     }
-
-//     // Ensure closed flags are boolean
-//     if (isset($data['working_hours'])) {
-//         foreach ($data['working_hours'] as $day => &$hours) {
-//             $hours['closed'] = filter_var($hours['closed'], FILTER_VALIDATE_BOOLEAN);
-//         }
-//         unset($hours);
-//     }
-
-//     // Validate $data instead of $request
-//     $validated = Validator::make($data, [
-//         'name'           => ['required', 'string', 'max:255'],
-//         'description'    => ['required', 'string'],
-//         'main_category'  => ['required', Rule::exists('categories', 'name')->whereNull('parent_id')],
-//         'sub_category'   => [
-//             'required',
-//             Rule::exists('categories', 'name')
-//                 ->whereNotNull('parent_id')
-//                 ->where(function ($query) use ($data) {
-//                     if (!empty($data['main_category'])) {
-//                         $query->where('parent_id', function($q) use ($data) {
-//                             $q->select('id')
-//                               ->from('categories')
-//                               ->where('name', $data['main_category'])
-//                               ->whereNull('parent_id');
-//                         });
-//                     }
-//                 }),
-//         ],
-//         'city'           => ['required', Rule::exists('cities', 'name')],
-//         'street'         => ['required', 'string', 'max:255'],
-//         'street_number'  => ['required', 'string', 'max:50'],
-
-//         // Working hours validation
-//         'working_hours' => ['required', 'array'],
-
-//         'working_hours.monday' => ['required', 'array'],
-//         'working_hours.monday.open'  => ['required_unless:working_hours.monday.closed,true','date_format:H:i'],
-//         'working_hours.monday.close' => ['required_unless:working_hours.monday.closed,true','date_format:H:i','after:working_hours.monday.open'],
-//         'working_hours.monday.closed'=> ['boolean'],
-
-//         // repeat for tuesday..sunday
-//         'working_hours.tuesday' => ['required', 'array'],
-//         'working_hours.tuesday.open'  => ['required_unless:working_hours.tuesday.closed,true','date_format:H:i'],
-//         'working_hours.tuesday.close' => ['required_unless:working_hours.tuesday.closed,true','date_format:H:i','after:working_hours.tuesday.open'],
-//         'working_hours.tuesday.closed'=> ['boolean'],
-
-//         'working_hours.wednesday' => ['required', 'array'],
-//         'working_hours.wednesday.open'  => ['required_unless:working_hours.wednesday.closed,true','date_format:H:i'],
-//         'working_hours.wednesday.close' => ['required_unless:working_hours.wednesday.closed,true','date_format:H:i','after:working_hours.wednesday.open'],
-//         'working_hours.wednesday.closed'=> ['boolean'],
-
-//         'working_hours.thursday' => ['required', 'array'],
-//         'working_hours.thursday.open'  => ['required_unless:working_hours.thursday.closed,true','date_format:H:i'],
-//         'working_hours.thursday.close' => ['required_unless:working_hours.thursday.closed,true','date_format:H:i','after:working_hours.thursday.open'],
-//         'working_hours.thursday.closed'=> ['boolean'],
-
-//         'working_hours.friday' => ['required', 'array'],
-//         'working_hours.friday.open'  => ['required_unless:working_hours.friday.closed,true','date_format:H:i'],
-//         'working_hours.friday.close' => ['required_unless:working_hours.friday.closed,true','date_format:H:i','after:working_hours.friday.open'],
-//         'working_hours.friday.closed'=> ['boolean'],
-
-//         'working_hours.saturday' => ['required', 'array'],
-//         'working_hours.saturday.open'  => ['required_unless:working_hours.saturday.closed,true','date_format:H:i'],
-//         'working_hours.saturday.close' => ['required_unless:working_hours.saturday.closed,true','date_format:H:i','after:working_hours.saturday.open'],
-//         'working_hours.saturday.closed'=> ['boolean'],
-
-//         'working_hours.sunday' => ['required', 'array'],
-//         'working_hours.sunday.open'  => ['nullable','date_format:H:i'],
-//         'working_hours.sunday.close' => ['nullable','date_format:H:i','after:working_hours.sunday.open'],
-//         'working_hours.sunday.closed'=> ['boolean'],
-
-//         'gallery' => ['required', 'array', 'min:1'],
-//         'gallery.*' => ['image', 'mimes:jpg,jpeg,png', 'max:2048'],
-//     ], [
-//         'main_category.exists' => 'Избраната категорија не постои.',
-//         'sub_category.exists'  => 'Избраната подкатегорија не постои или не припаѓа на категоријата.',
-//         'city.exists'          => 'Избраниот град не постои.',
-//         'gallery.required'     => 'Мора да прикачите најмалку една слика.',
-//         'gallery.*.image'      => 'Секоја датотека мора да биде слика.',
-//     ])->validate();
-
-//     // Save or update the business
-//     $business = Business::updateOrCreate(
-//         ['user_id' => $user->id],
-//         $validated
-//     );
-
-//     return response()->json(['message' => 'Бизнисот е успешно зачуван', 'business' => $business]);
-// }
 public function store(Request $request)
 {
     $user = Auth::user();
@@ -235,6 +131,10 @@ public function store(Request $request)
         'street_number.min' => 'Бројот на улицата мора да има најмалку :min карактер.',
         'street_number.max' => 'Бројот на улицата не може да има повеќе од :max карактери.',
         'working_hours.required' => 'Работното време е задолжително.',
+        'working_hours.*.open.date_format' => 'Времето за отворање мора да биде во формат ЧЧ:ММ.',
+        'working_hours.*.close.date_format' => 'Времето за затворање мора да биде во формат ЧЧ:ММ.',
+        'working_hours.*.close.after' => 'Времето за затворање мора да биде после времето за отворање.',
+        'working_hours.*.closed.boolean' => 'Полето за затворено мора да биде да или не.',
         'gallery.required' => 'Мора да прикачите најмалку една слика.',
         'gallery.*.image' => 'Секоја датотека мора да биде слика.',
         'gallery.*.mimes' => 'Сликите мора да бидат во JPG, JPEG или PNG формат.',
