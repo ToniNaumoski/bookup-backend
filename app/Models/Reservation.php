@@ -20,7 +20,8 @@ class Reservation extends Model
         'business_id',
         'date',
         'time',
-        'status'
+        'status',
+        'capacity'
     ];
 
     /**

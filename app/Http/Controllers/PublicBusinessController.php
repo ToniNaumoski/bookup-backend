@@ -253,13 +253,28 @@ class PublicBusinessController extends Controller
             ], 404);
         }
 
-        // Get all available slots created by the business owner
+        // Get all available slots created by the business owner that still have capacity
         $availableSlots = \App\Models\Reservation::where('business_id', $business->id)
             ->where('status', 'available')
             ->where('user_id', $business->user_id) // Only slots created by business owner
+            ->whereRaw('capacity > (SELECT COUNT(*) FROM reservations r2 WHERE r2.business_id = reservations.business_id AND r2.date = reservations.date AND r2.time = reservations.time AND r2.status IN ("pending", "confirmed"))')
             ->orderBy('date', 'asc')
             ->orderBy('time', 'asc')
             ->get();
+
+        // Add current bookings count to each slot
+        $availableSlots->transform(function ($slot) {
+            $currentBookings = \App\Models\Reservation::where('business_id', $slot->business_id)
+                ->where('date', $slot->date)
+                ->where('time', $slot->time)
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->count();
+
+            $slot->current_bookings = $currentBookings;
+            $slot->remaining_capacity = $slot->capacity - $currentBookings;
+
+            return $slot;
+        });
 
         return response()->json([
             'success' => true,

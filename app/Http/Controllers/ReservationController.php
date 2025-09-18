@@ -62,6 +62,11 @@ class ReservationController extends Controller
             'time' => 'required|date_format:H:i',
         ];
 
+        // If user is a business owner creating a slot, require capacity
+        if ($userBusiness) {
+            $validatorRules['capacity'] = 'required|integer|min:1|max:100';
+        }
+
         // If user is a business owner, they don't need to send business_id
         // The backend will automatically use their business
         if ($userBusiness) {
@@ -132,7 +137,8 @@ class ReservationController extends Controller
                 'business_id' => $business->id,
                 'date' => $request->date,
                 'time' => $request->time,
-                'status' => 'available' // Available slot created by business owner
+                'status' => 'available', // Available slot created by business owner
+                'capacity' => $request->capacity
             ]);
 
             return response()->json([
@@ -169,18 +175,6 @@ class ReservationController extends Controller
         ], 422);
     }
 
-    // Check if this time slot is already taken by someone else
-    $existingReservation = Reservation::where('date', $request->date)
-        ->where('time', $request->time)
-        ->whereIn('status', ['pending', 'confirmed'])
-        ->first();
-
-    if ($existingReservation) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Овој термин е веќе зафатен од друг корисник!'
-        ], 422);
-    }
 
     // Check if there's an available slot created by business owner
     $availableSlot = Reservation::where('business_id', $business->id)
@@ -190,6 +184,20 @@ class ReservationController extends Controller
         ->first();
 
     if ($availableSlot) {
+         // Check capacity - count how many people have already booked this slot
+         $currentBookings = Reservation::where('business_id', $business->id)
+             ->where('date', $request->date)
+             ->where('time', $request->time)
+             ->whereIn('status', ['pending', 'confirmed'])
+             ->count();
+
+         if ($currentBookings >= $availableSlot->capacity) {
+             return response()->json([
+                 'success' => false,
+                 'message' => 'Овој термин е веќе полн. Не може да се резервира повеќе.'
+             ], 422);
+         }
+
          // Check if the user has already made 2 reservations today
          $reservationCount = Reservation::where('user_id', $user->id)
              ->where('date', $request->date)
@@ -201,17 +209,22 @@ class ReservationController extends Controller
                  'message' => 'Масимален број на резервации се 2 во еден ден.'
              ], 422);
          }
-        // Use the existing available slot
-        $availableSlot->user_id = $user->id;
-        $availableSlot->status = 'pending';
-        $availableSlot->save();
-        $reservation = $availableSlot->load(['user', 'business']);
+        // Create a new reservation record for this user (don't modify the available slot)
+        $reservation = Reservation::create([
+            'user_id' => $user->id,
+            'business_id' => $business->id,
+            'date' => $request->date,
+            'time' => $request->time,
+            'status' => 'pending'
+        ]);
+
+        $reservation = $reservation->load(['user', 'business']);
         event(new ReservationCreated($reservation));
-        
+
         return response()->json([
             'success' => true,
             'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
-            'reservation' => $availableSlot
+            'reservation' => $reservation
         ]);
     } else {
         // Create new direct reservation (no pre-slot required)
@@ -367,7 +380,8 @@ class ReservationController extends Controller
             ->whereHas('business', function($query) {
                 // Only show slots for approved businesses
                 $query->where('status', 'approved');
-            });
+            })
+            ->whereRaw('capacity > (SELECT COUNT(*) FROM reservations r2 WHERE r2.business_id = reservations.business_id AND r2.date = reservations.date AND r2.time = reservations.time AND r2.status IN ("pending", "confirmed"))');
 
         // If user is not a business owner and has 2 or more reservations today, don't show available slots
         if (!$business) {
