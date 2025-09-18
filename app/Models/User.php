@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Mail\VerifyEmail;
 
 class User extends Authenticatable implements MustVerifyEmail
 
@@ -79,5 +80,21 @@ class User extends Authenticatable implements MustVerifyEmail
     public function reservations()
     {
         return $this->hasMany(\App\Models\Reservation::class);
+    }
+
+    /**
+     * Send the email verification notification.
+     */
+    public function sendEmailVerificationNotification()
+    {
+        $this->notify(new \App\Notifications\VerifyEmail());
+    }
+
+    /**
+     * Get the email address that should be used for verification.
+     */
+    public function getEmailForVerification()
+    {
+        return $this->email;
     }
 }

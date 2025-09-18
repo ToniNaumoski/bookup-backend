@@ -28,17 +28,28 @@ Broadcast::channel('admin-notifications', function ($user) {
     return $user->is_admin || ($user->is_business_owner ?? false);
 });
 
-Route::get('/email/verify/{id}/{hash}', function ($id, $hash) {
+Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {
     $user = \App\Models\User::findOrFail($id);
 
-    if (! hash_equals((string) $hash, sha1($user->email))) {
-        return response()->json(['message' => 'Invalid verification link.'], 400);
+    if (! hash_equals(sha1($user->getEmailForVerification()), (string) $hash)) {
+        return response()->json(['message' => 'Invalid verification link.'], 403);
+    }
+
+    if ($user->hasVerifiedEmail()) {
+        return response()->json(['message' => 'Email address is already verified.']);
     }
 
     $user->markEmailAsVerified();
 
-    return response()->json(['message' => 'Email verified successfully!']);
-})->name('verification.verify');
+    return response()->json(['message' => 'Email address successfully verified!']);
+})->middleware(['signed'])->name('verification.verify');
+
+// Resend verification email
+Route::post('/email/verification-notification', function (Request $request) {
+    $request->user()->sendEmailVerificationNotification();
+
+    return response()->json(['message' => 'Линк за верификација е испратен на вашата емаил адреса!']);
+})->middleware(['auth:sanctum'])->name('verification.send');
 
 // Public routes (no authentication required)
 Route::get('/businesses/approved', [PublicBusinessController::class, 'getApprovedBusinesses']);
@@ -63,6 +74,31 @@ Route::get('/business/form', [CreateBusinessController::class, 'form'])
 Route::post('/register/user', [AuthController::class, 'registerUser']);
 Route::post('/register/business', [AuthController::class, 'registerBusiness']);
 Route::post('/login', [AuthController::class, 'login']);
+
+// // Test email endpoint
+// Route::post('/test-email', function (Request $request) {
+//     $request->validate([
+//         'email' => 'required|email'
+//     ]);
+
+//     try {
+//         $user = \App\Models\User::first() ?? \App\Models\User::factory()->create([
+//             'name' => 'Test User',
+//             'email' => $request->email,
+//             'email_verified_at' => null
+//         ]);
+
+//         $user->sendEmailVerificationNotification();
+
+//         return response()->json([
+//             'message' => 'Тест емаилот е успешно испратен! Проверете го вашиот inbox/spam фолдер.'
+//         ]);
+//     } catch (\Exception $e) {
+//         return response()->json([
+//             'message' => 'Грешка при испраќање на емаил: ' . $e->getMessage()
+//         ], 500);
+//     }
+// });
 // Route::middleware(['auth:sanctum', 'verified'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/profile', [AuthController::class, 'profile']);

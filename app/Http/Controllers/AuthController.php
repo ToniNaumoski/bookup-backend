@@ -77,7 +77,8 @@ class AuthController extends Controller
 
     
         return response()->json([
-            'message' => 'Корисникот е регистриран. Проверете ја вашата емаил адреса за верификација на профилот.',
+            'message' => 'Корисникот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите.',
+            'requires_verification' => true,
         ], 201);
     }
 
@@ -102,7 +103,7 @@ class AuthController extends Controller
                 "required",
                 "string",
                 "min:8",
-                "regex:/^(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/"
+                "regex:/^(?=.*[A-Z]).{8,}$/"
             ],
             "password_confirmation" => "required|same:password",
         ], [
@@ -118,7 +119,7 @@ class AuthController extends Controller
             'phone.regex' => 'Внесете валиден телефонски број.',
             'password.required' => __('validation.required', ['attribute' => __('validation.attributes.password')]),
             'password.min' => __('validation.min.string', ['attribute' => __('validation.attributes.password'), 'min' => 8]),
-            'password.regex' => 'Лозинката мора да има најмалку 8 карактери, вклучувајќи голема буква и симбол.',
+            'password.regex' => 'Лозинката мора да има најмалку 8 карактери, вклучувајќи голема буква.',
             'password_confirmation.required' => 'Потврдата е задолжителна.',
             'password_confirmation.same' => __('validation.same', ['attribute' => __('validation.attributes.password_confirmation'), 'other' => __('validation.attributes.password')]),
         ]);
@@ -149,7 +150,8 @@ class AuthController extends Controller
 
     
         return response()->json([
-            'message' => 'Бизнисот е регистриран. Проверете ја вашата емаил адреса за верификација на профилот.',
+            'message' => 'Бизнисот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите. Проверете го вашиот inbox/spam фолдер.',
+            'requires_verification' => true,
         ], 201);
     
         // return response()->json([
@@ -182,6 +184,14 @@ class AuthController extends Controller
             Auth::logout(); // Log out the user
             throw ValidationException::withMessages([
                 'email' => ['Вашиот профил е ' . ($user->status === 'blocked' ? 'блокиран' : 'суспендиран') . '. Контактирајте со поддршка.'],
+            ]);
+        }
+
+        // Check email verification for non-super-admin users
+        if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
+            Auth::logout(); // Log out the user
+            throw ValidationException::withMessages([
+                'email' => ['Ве молиме верифицирајте ја вашата емаил адреса пред да се најавите. Проверете го вашиот емаил за линк за верификација.'],
             ]);
         }
 
