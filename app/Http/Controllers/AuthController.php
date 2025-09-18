@@ -35,21 +35,21 @@ class AuthController extends Controller
             ],
             "password_confirmation" => "required|same:password",
         ], [
-            'name.required' => 'Name is required.',
-            'name.min' => 'Name must be at least 4 characters.',
-            'name.max' => 'Name must be at max of 20 characters.',
-            'email.required' => 'Email is required.',
-            'email.email' => 'Please enter a valid email address.',
-            'email.unique' => 'This email is already registered.',
-            'email.regex' => 'Please enter a valid email address.',
-            'phone.required' => 'Phone is required.',
-            'phone.digits' => 'Please enter a valid phone number.',
-            'phone.regex' => 'Please enter a valid phone number.',
-            'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 8 characters long.',
-            'password.regex' => 'Password must be at least 8 characters, include an uppercase letter and a symbol.',
-            'password_confirmation.required' => 'Confirmation is required.',
-            'password_confirmation.same' => 'Passwords do not match.',
+            'name.required' => __('validation.required', ['attribute' => __('validation.attributes.name')]),
+            'name.min' => __('validation.min.string', ['attribute' => __('validation.attributes.name'), 'min' => 4]),
+            'name.max' => __('validation.max.string', ['attribute' => __('validation.attributes.name'), 'max' => 20]),
+            'email.required' => __('validation.required', ['attribute' => __('validation.attributes.email')]),
+            'email.email' => __('validation.email', ['attribute' => __('validation.attributes.email')]),
+            'email.unique' => 'Оваа емаил адреса е веќе регистрирана.',
+            'email.regex' => __('validation.email', ['attribute' => __('validation.attributes.email')]),
+            'phone.required' => __('validation.required', ['attribute' => __('validation.attributes.phone')]),
+            'phone.digits' => 'Внесете валиден телефонски број.',
+            'phone.regex' => 'Внесете валиден телефонски број.',
+            'password.required' => __('validation.required', ['attribute' => __('validation.attributes.password')]),
+            'password.min' => __('validation.min.string', ['attribute' => __('validation.attributes.password'), 'min' => 8]),
+            'password.regex' => 'Лозинката мора да има најмалку 8 карактери, вклучувајќи голема буква и симбол.',
+            'password_confirmation.required' => 'Потврдата е задолжителна.',
+            'password_confirmation.same' => __('validation.same', ['attribute' => __('validation.attributes.password_confirmation'), 'other' => __('validation.attributes.password')]),
         ]);
         
     
@@ -77,7 +77,7 @@ class AuthController extends Controller
 
     
         return response()->json([
-            'message' => 'User registered. Please check your email to verify your account.',
+            'message' => 'Корисникот е регистриран. Проверете ја вашата емаил адреса за верификација на профилот.',
         ], 201);
     }
 
@@ -106,21 +106,21 @@ class AuthController extends Controller
             ],
             "password_confirmation" => "required|same:password",
         ], [
-            'name.required' => 'Name is required.',
-            'name.min' => 'Name must be at least 4 characters.',
-            'name.max' => 'Name must be at max of 20 characters.',
-            'email.required' => 'Email is required.',
-            'email.email' => 'Please enter a valid email address.',
-            'email.unique' => 'This email is already registered.',
-            'email.regex' => 'Please enter a valid email address.',
-            'phone.required' => 'Phone is required.',
-            'phone.digits' => 'Please enter a valid phone number.',
-            'phone.regex' => 'Please enter a valid phone number.',
-            'password.required' => 'Password is required.',
-            'password.min' => 'Password must be at least 8 characters long.',
-            'password.regex' => 'Password must be at least 8 characters, include an uppercase letter and a symbol.',
-            'password_confirmation.required' => 'Confirmation is required.',
-            'password_confirmation.same' => 'Passwords do not match.',
+            'name.required' => __('validation.required', ['attribute' => __('validation.attributes.name')]),
+            'name.min' => __('validation.min.string', ['attribute' => __('validation.attributes.name'), 'min' => 4]),
+            'name.max' => __('validation.max.string', ['attribute' => __('validation.attributes.name'), 'max' => 20]),
+            'email.required' => __('validation.required', ['attribute' => __('validation.attributes.email')]),
+            'email.email' => __('validation.email', ['attribute' => __('validation.attributes.email')]),
+            'email.unique' => 'Оваа емаил адреса е веќе регистрирана.',
+            'email.regex' => __('validation.email', ['attribute' => __('validation.attributes.email')]),
+            'phone.required' => __('validation.required', ['attribute' => __('validation.attributes.phone')]),
+            'phone.digits' => 'Внесете валиден телефонски број.',
+            'phone.regex' => 'Внесете валиден телефонски број.',
+            'password.required' => __('validation.required', ['attribute' => __('validation.attributes.password')]),
+            'password.min' => __('validation.min.string', ['attribute' => __('validation.attributes.password'), 'min' => 8]),
+            'password.regex' => 'Лозинката мора да има најмалку 8 карактери, вклучувајќи голема буква и симбол.',
+            'password_confirmation.required' => 'Потврдата е задолжителна.',
+            'password_confirmation.same' => __('validation.same', ['attribute' => __('validation.attributes.password_confirmation'), 'other' => __('validation.attributes.password')]),
         ]);
         
     
@@ -149,7 +149,7 @@ class AuthController extends Controller
 
     
         return response()->json([
-            'message' => 'Business registered. Please check your email to verify your account.',
+            'message' => 'Бизнисот е регистриран. Проверете ја вашата емаил адреса за верификација на профилот.',
         ], 201);
     
         // return response()->json([
@@ -170,8 +170,8 @@ class AuthController extends Controller
         // Attempt login
         if (!Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             throw ValidationException::withMessages([
-                'email' => ['Invalid credentials'],
-                'password' => ['Invalid credentials'],
+                'email' => ['Невалидни податоци'],
+                'password' => ['Невалидни податоци'],
             ]);
         }
 
@@ -181,7 +181,7 @@ class AuthController extends Controller
         if ($user->status === 'blocked' || $user->status === 'suspended') {
             Auth::logout(); // Log out the user
             throw ValidationException::withMessages([
-                'email' => ['Your account has been ' . $user->status . '. Please contact support.'],
+                'email' => ['Вашиот профил е ' . ($user->status === 'blocked' ? 'блокиран' : 'суспендиран') . '. Контактирајте со поддршка.'],
             ]);
         }
 
@@ -215,6 +215,6 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => 'Одјавени сте']);
     }
 }

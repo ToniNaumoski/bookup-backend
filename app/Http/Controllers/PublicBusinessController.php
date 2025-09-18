@@ -114,7 +114,7 @@ class PublicBusinessController extends Controller
         if ($business->status !== 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'This business is not available'
+                'message' => 'Овој бизнис не е достапен'
             ], 404);
         }
 
@@ -122,7 +122,7 @@ class PublicBusinessController extends Controller
         if (!$date) {
             return response()->json([
                 'success' => false,
-                'message' => 'Date parameter is required'
+                'message' => 'Параметарот за датум е задолжителен'
             ], 400);
         }
 
@@ -135,13 +135,13 @@ class PublicBusinessController extends Controller
             if ($selectedDate < $today) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Cannot book appointments for past dates'
+                    'message' => 'Не може да се резервираат термини за минати датуми'
                 ], 400);
             }
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid date format'
+                'message' => 'Невалиден формат на датум'
             ], 400);
         }
 
@@ -161,7 +161,7 @@ class PublicBusinessController extends Controller
             return response()->json([
                 'success' => true,
                 'available_slots' => [],
-                'message' => 'Business working hours not configured'
+                'message' => 'Работните часови на бизнисот не се конфигурирани'
             ]);
         }
 
@@ -170,7 +170,7 @@ class PublicBusinessController extends Controller
             return response()->json([
                 'success' => true,
                 'available_slots' => [],
-                'message' => 'Business is closed on this day'
+                'message' => 'Бизнисот е затворен овој ден'
             ]);
         }
 
@@ -190,7 +190,7 @@ class PublicBusinessController extends Controller
             return response()->json([
                 'success' => true,
                 'available_slots' => [],
-                'message' => 'Business hours not configured for this day'
+                'message' => 'Работните часови на бизнисот не се конфигурирани за овој ден'
             ]);
         }
 
@@ -199,7 +199,7 @@ class PublicBusinessController extends Controller
             return response()->json([
                 'success' => true,
                 'available_slots' => [],
-                'message' => 'Business hours not configured for this day'
+                'message' => 'Работните часови на бизнисот не се конфигурирани за овој ден'
             ]);
         }
 
@@ -249,7 +249,7 @@ class PublicBusinessController extends Controller
         if ($business->status !== 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'This business is not available'
+                'message' => 'Овој бизнис не е достапен'
             ], 404);
         }
 
