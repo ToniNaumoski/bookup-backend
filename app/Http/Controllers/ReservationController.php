@@ -8,6 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use App\Events\ReservationCreated;
+use App\Notifications\ReservationCreated as ReservationCreatedNotification;
+use App\Notifications\ReservationStatusChanged;
+use App\Notifications\ReservationCancelledByUser;
 
 
 class ReservationController extends Controller
@@ -221,6 +224,10 @@ class ReservationController extends Controller
         $reservation = $reservation->load(['user', 'business']);
         event(new ReservationCreated($reservation));
 
+        // Send email notification to business owner
+        $businessOwner = $reservation->business->user;
+        $businessOwner->notify(new ReservationCreatedNotification($reservation));
+
         return response()->json([
             'success' => true,
             'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
@@ -238,7 +245,11 @@ class ReservationController extends Controller
 
         $reservation = $reservation->load(['user', 'business']);
         event(new ReservationCreated($reservation));
-        
+
+        // Send email notification to business owner
+        $businessOwner = $reservation->business->user;
+        $businessOwner->notify(new ReservationCreatedNotification($reservation));
+
         return response()->json([
             'success' => true,
             'message' => 'Резервацијата е успешно направена! Бизнисот ќе ја разгледа вашата барање.',
@@ -275,8 +286,12 @@ class ReservationController extends Controller
             ], 422);
         }
 
+        $oldStatus = $reservation->status;
         $reservation->status = 'confirmed';
         $reservation->save();
+
+        // Send email notification to user
+        $reservation->user->notify(new ReservationStatusChanged($reservation, $oldStatus, 'confirmed'));
 
         return response()->json([
             'success' => true,
@@ -305,8 +320,12 @@ class ReservationController extends Controller
                 ], 422);
             }
 
+            $oldStatus = $reservation->status;
             $reservation->status = 'cancelled';
             $reservation->save();
+
+            // Send email notification to user
+            $reservation->user->notify(new ReservationStatusChanged($reservation, $oldStatus, 'cancelled'));
 
             return response()->json([
                 'success' => true,
@@ -322,8 +341,13 @@ class ReservationController extends Controller
                 ], 422);
             }
 
+            $oldStatus = $reservation->status;
             $reservation->status = 'cancelled';
             $reservation->save();
+
+            // Send email notification to business owner
+            $businessOwner = $reservation->business->user;
+            $businessOwner->notify(new ReservationCancelledByUser($reservation, 'cancelled'));
 
             return response()->json([
                 'success' => true,
@@ -351,6 +375,10 @@ class ReservationController extends Controller
                 'message' => 'Unauthorized'
             ], 403);
         }
+
+        // Send email notification to business owner before deleting
+        $businessOwner = $reservation->business->user;
+        $businessOwner->notify(new ReservationCancelledByUser($reservation, 'deleted'));
 
         // Allow deletion of both active and cancelled reservations
         $reservation->delete();
