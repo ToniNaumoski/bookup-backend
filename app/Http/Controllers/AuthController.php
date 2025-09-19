@@ -179,13 +179,16 @@ class AuthController extends Controller
 
         $user = Auth::user(); // Get the authenticated user
 
-        // Check if user account is active
-        if ($user->status === 'blocked' || $user->status === 'suspended') {
+        // Check if user account is blocked (blocked users cannot log in)
+        if ($user->status === 'blocked') {
             Auth::logout(); // Log out the user
             throw ValidationException::withMessages([
-                'email' => ['Вашиот профил е ' . ($user->status === 'blocked' ? 'блокиран' : 'суспендиран') . '. Контактирајте со поддршка.'],
+                'email' => ['Вашиот профил е блокиран. Контактирајте со поддршка.'],
             ]);
         }
+
+        // Suspended users can log in but have restrictions
+        $isSuspended = $user->status === 'suspended';
 
         // Check email verification for non-super-admin users
         if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
@@ -200,7 +203,9 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'role' => $user->role,
-            'name' => $user->name
+            'name' => $user->name,
+            'status' => $user->status,
+            'is_suspended' => $isSuspended
         ]);
     }
 

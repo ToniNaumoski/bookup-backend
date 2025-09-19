@@ -1,4 +1,5 @@
 <?php
+use App\Http\Controllers\AdminMessageController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreateBusinessController;
 use App\Http\Controllers\PublicBusinessController;
@@ -125,6 +126,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/users/{id}/block', [SuperAdminController::class, 'blockUser']);
         Route::put('/users/{id}/unblock', [SuperAdminController::class, 'unblockUser']);
         Route::put('/users/{id}/suspend', [SuperAdminController::class, 'suspendUser']);
+        Route::put('/users/{id}/unsuspend', [SuperAdminController::class, 'unsuspendUser']);
         Route::put('/users/{id}/role', [SuperAdminController::class, 'updateUserRole']);
         Route::get('/users/status/{status}', [SuperAdminController::class, 'getUsersByStatus']);
         Route::post('/users/{id}/message', [SuperAdminController::class, 'sendMessageToUser']);
@@ -135,9 +137,28 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/businesses/{id}/message', [SuperAdminController::class, 'sendMessageToBusiness']);
         Route::get('/businesses/pending-reviews', [SuperAdminController::class, 'getPendingReviews']);
 
+        // Admin message routes
+        Route::get('/messages/all', [\App\Http\Controllers\AdminMessageController::class, 'getAllMessages']);
+        Route::get('/messages/user/{userId}', [\App\Http\Controllers\AdminMessageController::class, 'getUserMessages']);
+        Route::post('/messages/user/{userId}', [\App\Http\Controllers\AdminMessageController::class, 'sendMessageToUser']);
+        Route::put('/messages/{messageId}/read', [\App\Http\Controllers\AdminMessageController::class, 'markAsRead']);
+
         // Legacy routes (keeping for backward compatibility)
         Route::put('/businesses/{id}/approve', [SuperAdminController::class, 'approveBusiness']);
         Route::put('/businesses/{id}/reject', [SuperAdminController::class, 'rejectBusiness']);
         Route::put('/reservations/{id}/cancel', [SuperAdminController::class, 'cancelReservation']);
+
+        // Admin messaging routes
+        Route::get('/messages/all', [AdminMessageController::class, 'getAllMessages']);
+        Route::get('/messages/user/{userId}', [AdminMessageController::class, 'getUserMessages']);
+        Route::post('/messages/user/{userId}', [AdminMessageController::class, 'sendMessageToUser']);
     });
+
+    // User messaging routes (for regular users and businesses)
+    Route::get('/messages', [AdminMessageController::class, 'getMyMessages']);
+    Route::post('/messages', [AdminMessageController::class, 'sendMessageToAdmin']);
+    Route::put('/messages/{messageId}/read', [AdminMessageController::class, 'markAsRead']);
+    Route::put('/user-messages/{messageIndex}/read', [AdminMessageController::class, 'markUserAdminMessageAsRead']);
+    Route::put('/user-messages/mark-read', [AdminMessageController::class, 'markSystemMessageAsRead']);
+    Route::get('/messages/unread-count', [AdminMessageController::class, 'getUnreadCount']);
 });

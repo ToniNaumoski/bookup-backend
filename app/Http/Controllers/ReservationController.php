@@ -58,6 +58,14 @@ class ReservationController extends Controller
         // Get the authenticated user
         $user = Auth::user();
 
+        // Check if user is suspended
+        if ($user->status === 'suspended') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Вашиот профил е суспендиран. Не можете да правите резервации. Контактирајте со поддршка.'
+            ], 403);
+        }
+
         // Check if user is a business owner
         $userBusiness = Business::where('user_id', $user->id)->first();
 

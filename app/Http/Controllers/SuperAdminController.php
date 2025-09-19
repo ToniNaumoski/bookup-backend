@@ -405,6 +405,42 @@ class SuperAdminController extends Controller
     }
 
     /**
+     * Unsuspend a user account
+     */
+    public function unsuspendUser($id)
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $user = User::findOrFail($id);
+
+        // Only allow unsuspending suspended users
+        if ($user->status !== 'suspended') {
+            return response()->json([
+                'success' => false,
+                'message' => 'User is not suspended.'
+            ], 422);
+        }
+
+        $user->update([
+            'status' => 'active',
+            'blocked_at' => null,
+            'block_reason' => null,
+            'blocked_by' => null
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User account unsuspended successfully.',
+            'user' => $user
+        ]);
+    }
+
+    /**
      * Suspend a user account
      */
     public function suspendUser(Request $request, $id)
@@ -442,11 +478,13 @@ class SuperAdminController extends Controller
         // Send message to user
         $messages = $user->admin_messages ?? [];
         $messages[] = [
+            'id' => uniqid('msg_', true),
             'message' => "Your account has been suspended for the following reason: {$request->reason}. Please contact support if you believe this is an error.",
             'type' => 'warning',
             'admin_id' => $admin->id,
             'admin_name' => $admin->name,
-            'created_at' => now()->toISOString()
+            'created_at' => now()->toISOString(),
+            'is_read' => false
         ];
         $user->admin_messages = $messages;
         $user->save();
