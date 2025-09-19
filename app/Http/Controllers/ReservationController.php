@@ -471,26 +471,35 @@ class ReservationController extends Controller
     public function destroy(Request $request, $id)
     {
         $reservation = Reservation::findOrFail($id);
+        $user = Auth::user();
 
-        // Check if the reservation belongs to the authenticated user
-        if ($reservation->user_id !== Auth::id()) {
+        // Check if the authenticated user owns the business for this reservation
+        $business = Business::where('user_id', $user->id)->first();
+
+        if ($business && $reservation->business_id === $business->id) {
+            // Business owner deleting a reservation for their business
+            // Send email notification to the customer before deleting
+            $customer = $reservation->user;
+            $customer->notify(new ReservationStatusChanged($reservation, $reservation->status, 'deleted'));
+
+            $reservation->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Резервацијата е трајно избришана!'
+            ]);
+        } elseif ($reservation->user_id === $user->id) {
+            // Regular user trying to delete their own reservation
             return response()->json([
                 'success' => false,
-                'message' => 'Unauthorized'
+                'message' => 'Корисниците можат само да ги откажат резервациите, не да ги избришат. Користете копчето "Откажи" наместо тоа.'
+            ], 403);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Немате дозвола да ја избришете оваа резервација'
             ], 403);
         }
-
-        // Send email notification to business owner before deleting
-        $businessOwner = $reservation->business->user;
-        $businessOwner->notify(new ReservationCancelledByUser($reservation, 'deleted'));
-
-        // Allow deletion of both active and cancelled reservations
-        $reservation->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Резервацијата е трајно избришана!'
-        ]);
     }
 
     /**

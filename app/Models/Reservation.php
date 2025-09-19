@@ -21,8 +21,7 @@ class Reservation extends Model
         'date',
         'time',
         'status',
-        'capacity',
-        'message'
+        'capacity'
     ];
 
     /**
