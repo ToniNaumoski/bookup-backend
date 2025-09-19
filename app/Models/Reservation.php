@@ -21,7 +21,8 @@ class Reservation extends Model
         'date',
         'time',
         'status',
-        'capacity'
+        'capacity',
+        'message'
     ];
 
     /**
@@ -38,6 +39,14 @@ class Reservation extends Model
     public function business()
     {
         return $this->belongsTo(Business::class);
+    }
+
+    /**
+     * Get the messages for this reservation.
+     */
+    public function messages()
+    {
+        return $this->hasMany(ReservationMessage::class)->orderBy('created_at', 'asc');
     }
 
     /**

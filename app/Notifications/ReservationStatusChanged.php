@@ -40,7 +40,7 @@ class ReservationStatusChanged extends Notification
         $statusText = $this->getStatusText($this->newStatus);
         $actionText = $this->getActionText($this->newStatus);
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject("Резервација {$statusText} - RezervirajOnline.mk")
             ->greeting('Здраво!')
             ->line("Вашата резервација кај {$this->reservation->business->name} е {$statusText}.")
@@ -48,10 +48,19 @@ class ReservationStatusChanged extends Notification
             ->line("**Бизнис:** {$this->reservation->business->name}")
             ->line("**Датум:** {$this->reservation->date}")
             ->line("**Време:** {$this->reservation->time}")
-            ->line("**Нов статус:** " . ucfirst($this->newStatus))
-            ->action('Види резервации', url('/user-dashboard'))
-            ->line($actionText)
-            ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+            ->line("**Нов статус:** " . ucfirst($this->newStatus));
+
+        // Include custom message if provided
+        if ($this->reservation->message) {
+            $message->line("**Порака од {$this->reservation->business->name}:**")
+                   ->line($this->reservation->message);
+        }
+
+        $message->action('Види резервации', url('/user-dashboard'))
+                ->line($actionText)
+                ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+
+        return $message;
     }
 
     /**

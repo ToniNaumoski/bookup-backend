@@ -109,6 +109,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/reservations', [ReservationController::class, 'store']);
     Route::put('/reservations/{id}/cancel', [ReservationController::class, 'cancel']);
     Route::put('/reservations/{id}/confirm', [ReservationController::class, 'confirm']);
+    Route::post('/reservations/{id}/message', [ReservationController::class, 'sendMessage']);
     Route::delete('/reservations/{id}', [ReservationController::class, 'destroy']);
     
     // Super Admin routes with middleware protection

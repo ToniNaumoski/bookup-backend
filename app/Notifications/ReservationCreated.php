@@ -15,7 +15,7 @@ class ReservationCreated extends Notification
      */
     public function __construct(Reservation $reservation)
     {
-        $this->reservation = $reservation;
+        $this->reservation = $reservation->load('messages.sender');
     }
 
     /**
@@ -33,7 +33,7 @@ class ReservationCreated extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject('Нова резервација - RezervirajOnline.mk')
             ->greeting('Здраво!')
             ->line("Имате нова резервација од корисникот {$this->reservation->user->name}.")
@@ -43,10 +43,20 @@ class ReservationCreated extends Notification
             ->line("**Телефон:** {$this->reservation->user->phone}")
             ->line("**Датум:** {$this->reservation->date}")
             ->line("**Време:** {$this->reservation->time}")
-            ->line("**Статус:** " . ucfirst($this->reservation->status))
-            ->action('Види резервации', url('/business-dashboard'))
-            ->line('Ве молиме да ја потврдите или откажете резервацијата што е можно поскоро.')
-            ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+            ->line("**Статус:** " . ucfirst($this->reservation->status));
+
+        // Include initial message if exists
+        $initialMessage = $this->reservation->messages->where('sender_type', 'user')->first();
+        if ($initialMessage) {
+            $mail->line("**Порака од корисникот:**")
+                 ->line("\"{$initialMessage->message}\"");
+        }
+
+        $mail->action('Види резервации', url('/business-dashboard'))
+             ->line('Ве молиме да ја потврдите или откажете резервацијата што е можно поскоро.')
+             ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+
+        return $mail;
     }
 
     /**

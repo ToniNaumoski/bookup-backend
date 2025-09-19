@@ -38,7 +38,7 @@ class ReservationCancelledByUser extends Notification
         $actionText = $this->getActionText();
         $subject = $this->action === 'deleted' ? 'Резервација избришана' : 'Резервација откажана';
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject("{$subject} - RezervirajOnline.mk")
             ->greeting('Здраво!')
             ->line("Корисникот {$this->reservation->user->name} ја {$actionText} резервацијата.")
@@ -47,10 +47,19 @@ class ReservationCancelledByUser extends Notification
             ->line("**Емаил:** {$this->reservation->user->email}")
             ->line("**Телефон:** {$this->reservation->user->phone}")
             ->line("**Датум:** {$this->reservation->date}")
-            ->line("**Време:** {$this->reservation->time}")
-            ->action('Види резервации', url('/business-dashboard'))
-            ->line('Можете да контактирате со корисникот ако е потребно.')
-            ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+            ->line("**Време:** {$this->reservation->time}");
+
+        // Include custom message if provided
+        if ($this->reservation->message) {
+            $message->line("**Порака од {$this->reservation->user->name}:**")
+                   ->line($this->reservation->message);
+        }
+
+        $message->action('Види резервации', url('/business-dashboard'))
+                ->line('Можете да контактирате со корисникот ако е потребно.')
+                ->salutation('Со почит, Тимот на RezervirajOnline.mk');
+
+        return $message;
     }
 
     /**

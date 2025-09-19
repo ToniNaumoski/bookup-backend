@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use App\Events\ReservationCreated;
+use App\Models\ReservationMessage;
 use App\Notifications\ReservationCreated as ReservationCreatedNotification;
 use App\Notifications\ReservationStatusChanged;
 use App\Notifications\ReservationCancelledByUser;
@@ -28,14 +29,14 @@ class ReservationController extends Controller
         if ($business) {
             // Business owner - show reservations made FOR their business
             $reservations = Reservation::where('business_id', $business->id)
-                ->with(['user']) // Include user details
+                ->with(['user', 'messages.sender']) // Include user details and messages
                 ->orderBy('date', 'asc')
                 ->orderBy('time', 'asc')
                 ->get();
         } else {
             // Regular user - show their own reservations (all statuses)
             $reservations = Reservation::where('user_id', $user->id)
-                ->with(['business']) // Include business details
+                ->with(['business', 'messages.sender']) // Include business details and messages
                 ->orderBy('date', 'asc')
                 ->orderBy('time', 'asc')
                 ->get();
@@ -153,16 +154,16 @@ class ReservationController extends Controller
             // Regular user booking
 
             // Check if the user has already made 2 reservations today
-            $reservationCount = Reservation::where('user_id', $user->id)
-                ->where('date', $request->date)
-                ->count();
-
-            if ($reservationCount >= 2) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Масимален број на резервации се 2 во еден ден.'
-                ], 422);
-            }
+            // $reservationCount = Reservation::where('user_id', $user->id)
+            //     ->where('date', $request->date)
+            //     ->count();
+  
+            // if ($reservationCount >= 2) {
+            //     return response()->json([
+            //         'success' => false,
+            //         'message' => 'Масимален број на резервации се 2 во еден ден.'
+            //     ], 422);
+            // }
     
     // Check if user already has a reservation for this exact time
     $existingUserReservation = Reservation::where('date', $request->date)
@@ -202,16 +203,16 @@ class ReservationController extends Controller
          }
 
          // Check if the user has already made 2 reservations today
-         $reservationCount = Reservation::where('user_id', $user->id)
-             ->where('date', $request->date)
-             ->count();
+         // $reservationCount = Reservation::where('user_id', $user->id)
+         //     ->where('date', $request->date)
+         //     ->count();
 
-         if ($reservationCount >= 2) {
-             return response()->json([
-                 'success' => false,
-                 'message' => 'Масимален број на резервации се 2 во еден ден.'
-             ], 422);
-         }
+         // if ($reservationCount >= 2) {
+         //     return response()->json([
+         //         'success' => false,
+         //         'message' => 'Масимален број на резервации се 2 во еден ден.'
+         //     ], 422);
+         // }
         // Create a new reservation record for this user (don't modify the available slot)
         $reservation = Reservation::create([
             'user_id' => $user->id,
@@ -223,6 +224,16 @@ class ReservationController extends Controller
 
         $reservation = $reservation->load(['user', 'business']);
         event(new ReservationCreated($reservation));
+
+        // Save initial message if provided
+        if ($request->message) {
+            ReservationMessage::create([
+                'reservation_id' => $reservation->id,
+                'sender_id' => $user->id,
+                'message' => $request->message,
+                'sender_type' => 'user'
+            ]);
+        }
 
         // Send email notification to business owner
         $businessOwner = $reservation->business->user;
@@ -246,6 +257,16 @@ class ReservationController extends Controller
         $reservation = $reservation->load(['user', 'business']);
         event(new ReservationCreated($reservation));
 
+        // Save initial message if provided
+        if ($request->message) {
+            ReservationMessage::create([
+                'reservation_id' => $reservation->id,
+                'sender_id' => $user->id,
+                'message' => $request->message,
+                'sender_type' => 'user'
+            ]);
+        }
+
         // Send email notification to business owner
         $businessOwner = $reservation->business->user;
         $businessOwner->notify(new ReservationCreatedNotification($reservation));
@@ -266,6 +287,10 @@ class ReservationController extends Controller
      */
     public function confirm(Request $request, $id)
     {
+        $request->validate([
+            'message' => 'nullable|string|max:1000'
+        ]);
+
         $reservation = Reservation::findOrFail($id);
 
         // Check if the authenticated user owns the business for this reservation
@@ -290,6 +315,16 @@ class ReservationController extends Controller
         $reservation->status = 'confirmed';
         $reservation->save();
 
+        // Save message if provided
+        if ($request->message) {
+            ReservationMessage::create([
+                'reservation_id' => $reservation->id,
+                'sender_id' => Auth::id(),
+                'message' => $request->message,
+                'sender_type' => 'business'
+            ]);
+        }
+
         // Send email notification to user
         $reservation->user->notify(new ReservationStatusChanged($reservation, $oldStatus, 'confirmed'));
 
@@ -311,6 +346,10 @@ class ReservationController extends Controller
         $business = Business::where('user_id', $user->id)->first();
 
         if ($business && $reservation->business_id === $business->id) {
+            $request->validate([
+                'message' => 'nullable|string|max:1000'
+            ]);
+
             // Business owner cancelling a reservation for their business
             // Only allow canceling pending or confirmed reservations
             if (!in_array($reservation->status, ['pending', 'confirmed'])) {
@@ -324,6 +363,16 @@ class ReservationController extends Controller
             $reservation->status = 'cancelled';
             $reservation->save();
 
+            // Save message if provided
+            if ($request->message) {
+                ReservationMessage::create([
+                    'reservation_id' => $reservation->id,
+                    'sender_id' => Auth::id(),
+                    'message' => $request->message,
+                    'sender_type' => 'business'
+                ]);
+            }
+
             // Send email notification to user
             $reservation->user->notify(new ReservationStatusChanged($reservation, $oldStatus, 'cancelled'));
 
@@ -332,6 +381,10 @@ class ReservationController extends Controller
                 'message' => 'Резервацијата е откажана од бизнисот!'
             ]);
         } elseif ($reservation->user_id === $user->id) {
+            $request->validate([
+                'message' => 'nullable|string|max:1000'
+            ]);
+
             // Regular user cancelling their own reservation
             // Only allow canceling pending or confirmed reservations
             if (!in_array($reservation->status, ['pending', 'confirmed'])) {
@@ -344,6 +397,16 @@ class ReservationController extends Controller
             $oldStatus = $reservation->status;
             $reservation->status = 'cancelled';
             $reservation->save();
+
+            // Save message if provided
+            if ($request->message) {
+                ReservationMessage::create([
+                    'reservation_id' => $reservation->id,
+                    'sender_id' => Auth::id(),
+                    'message' => $request->message,
+                    'sender_type' => 'user'
+                ]);
+            }
 
             // Send email notification to business owner
             $businessOwner = $reservation->business->user;
@@ -359,6 +422,47 @@ class ReservationController extends Controller
                 'message' => 'Немате дозвола да ја откажете оваа резервација'
             ], 403);
         }
+    }
+
+    /**
+     * Send a message for a reservation.
+     */
+    public function sendMessage(Request $request, $id)
+    {
+        $request->validate([
+            'message' => 'required|string|max:1000'
+        ]);
+
+        $reservation = Reservation::findOrFail($id);
+        $user = Auth::user();
+
+        // Check if user is authorized (either the user who made the reservation or the business owner)
+        $isUser = $reservation->user_id === $user->id;
+        $isBusinessOwner = $reservation->business->user_id === $user->id;
+
+        if (!$isUser && !$isBusinessOwner) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        // Create the message
+        $message = ReservationMessage::create([
+            'reservation_id' => $reservation->id,
+            'sender_id' => $user->id,
+            'message' => $request->message,
+            'sender_type' => $isBusinessOwner ? 'business' : 'user'
+        ]);
+
+        // Load sender relationship
+        $message->load('sender');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Пораката е успешно испратена!',
+            'data' => $message
+        ]);
     }
 
     /**
@@ -412,15 +516,15 @@ class ReservationController extends Controller
             ->whereRaw('capacity > (SELECT COUNT(*) FROM reservations r2 WHERE r2.business_id = reservations.business_id AND r2.date = reservations.date AND r2.time = reservations.time AND r2.status IN ("pending", "confirmed"))');
 
         // If user is not a business owner and has 2 or more reservations today, don't show available slots
-        if (!$business) {
-            $reservationCount = Reservation::where('user_id', $user->id)
-                ->where('date', $request->date)
-                ->count();
+        // if (!$business) {
+        //     $reservationCount = Reservation::where('user_id', $user->id)
+        //         ->where('date', $request->date)
+        //         ->count();
 
-            if ($reservationCount >= 2) {
-                $availableSlotsQuery->where('id', null); // Return empty result
-            }
-        }
+        //     if ($reservationCount >= 2) {
+        //         $availableSlotsQuery->where('id', null); // Return empty result
+        //     }
+        // }
 
         $availableSlots = $availableSlotsQuery->orderBy('date', 'asc')
             ->orderBy('time', 'asc')
