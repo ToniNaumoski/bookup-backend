@@ -64,6 +64,30 @@ class Business extends Model
     }
 
     /**
+     * Get ratings received by this business from users
+     */
+    public function ratings()
+    {
+        return $this->hasMany(\App\Models\UserBusinessRating::class);
+    }
+
+    /**
+     * Get ratings given by this business to users
+     */
+    public function userRatings()
+    {
+        return $this->hasMany(\App\Models\BusinessUserRating::class);
+    }
+
+    /**
+     * Get average rating for this business
+     */
+    public function getAverageRatingAttribute()
+    {
+        return $this->ratings()->avg('stars') ?? 0;
+    }
+
+    /**
      * The "booted" method of the model.
      */
     protected static function booted(): void

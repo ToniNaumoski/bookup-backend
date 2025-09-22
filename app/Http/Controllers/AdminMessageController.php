@@ -22,17 +22,24 @@ class AdminMessageController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        \Log::info('getUserMessages called with userId: ' . $userId);
         $user = User::findOrFail($userId);
+        \Log::info('User found: ' . $user->id . ' - ' . $user->name);
 
+        // Get messages between admin and specific user
         $messages = AdminMessage::where(function($query) use ($admin, $user) {
-            $query->where('sender_id', $admin->id)
+            $query->where(function($q) use ($admin, $user) {
+                $q->where('sender_id', $admin->id)
                   ->where('receiver_id', $user->id);
-        })->orWhere(function($query) use ($admin, $user) {
-            $query->where('sender_id', $user->id)
+            })->orWhere(function($q) use ($admin, $user) {
+                $q->where('sender_id', $user->id)
                   ->where('receiver_id', $admin->id);
+            });
         })->with(['sender', 'receiver'])
           ->orderBy('created_at', 'asc')
           ->get();
+
+        \Log::info('Found ' . $messages->count() . ' messages for user ' . $user->id);
 
         return response()->json([
             'success' => true,
@@ -161,8 +168,8 @@ class AdminMessageController extends Controller
 
         $message = AdminMessage::findOrFail($messageId);
 
-        // Check if user is the receiver
-        if ($message->receiver_id !== $user->id) {
+        // Check if user is the receiver OR sender (for admin to mark their own sent messages)
+        if ($message->receiver_id !== $user->id && $message->sender_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -260,26 +267,81 @@ class AdminMessageController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Get the latest message from each conversation
-        $messages = AdminMessage::where('receiver_id', $admin->id)
-            ->orWhere('sender_id', $admin->id)
+        // Get feedback messages (notes and suggestions) - these should always be visible
+        $feedbackMessages = AdminMessage::where('receiver_id', $admin->id)
+            ->whereIn('type', ['note', 'suggestion'])
+            ->with(['sender', 'receiver'])
+            ->get();
+
+        // Get the latest message from each regular conversation (excluding feedback)
+        $regularMessages = AdminMessage::where(function($query) use ($admin) {
+                $query->where('receiver_id', $admin->id)
+                      ->orWhere('sender_id', $admin->id);
+            })
+            ->whereNotIn('type', ['note', 'suggestion']) // Exclude feedback messages
             ->with(['sender', 'receiver'])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->groupBy(function($message) {
+            ->groupBy(function($message) use ($admin) {
                 // Group by the other user (not admin)
-                return $message->sender_id === auth()->id() ? $message->receiver_id : $message->sender_id;
+                return $message->sender_id === $admin->id ? $message->receiver_id : $message->sender_id;
             })
             ->map(function($conversation) {
                 // Get the latest message from each conversation
                 return $conversation->first();
             })
-            ->values()
-            ->sortByDesc('created_at');
+            ->values();
+
+        // Combine feedback messages and regular conversation previews
+        $allMessages = $feedbackMessages->concat($regularMessages)->sortByDesc('created_at')->values();
 
         return response()->json([
             'success' => true,
-            'messages' => $messages
+            'messages' => $allMessages->toArray()
+        ]);
+    }
+
+    /**
+     * Submit feedback/note/suggestion from user to admin
+     */
+    public function submitFeedback(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'message' => 'required|string|max:1000',
+            'type' => 'required|in:note,suggestion'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Find super admin
+        $admin = User::where('role', 'super_admin')->first();
+        if (!$admin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin not found'
+            ], 404);
+        }
+
+        $message = AdminMessage::create([
+            'sender_id' => $user->id,
+            'receiver_id' => $admin->id,
+            'message' => $request->message,
+            'type' => $request->type,
+            'is_read' => false
+        ]);
+
+        $message->load(['sender', 'receiver']);
+
+        return response()->json([
+            'success' => true,
+            'message' => $message
         ]);
     }
 

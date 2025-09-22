@@ -83,6 +83,22 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Get ratings given by this user to businesses
+     */
+    public function businessRatings()
+    {
+        return $this->hasMany(\App\Models\UserBusinessRating::class);
+    }
+
+    /**
+     * Get ratings received by this user from businesses
+     */
+    public function receivedRatings()
+    {
+        return $this->hasMany(\App\Models\BusinessUserRating::class);
+    }
+
+    /**
      * Send the email verification notification.
      */
     public function sendEmailVerificationNotification()

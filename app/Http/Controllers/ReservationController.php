@@ -29,14 +29,14 @@ class ReservationController extends Controller
         if ($business) {
             // Business owner - show reservations made FOR their business
             $reservations = Reservation::where('business_id', $business->id)
-                ->with(['user', 'messages.sender']) // Include user details and messages
+                ->with(['user', 'messages.sender', 'userBusinessRating', 'businessUserRating']) // Include user details, messages, and ratings
                 ->orderBy('date', 'asc')
                 ->orderBy('time', 'asc')
                 ->get();
         } else {
             // Regular user - show their own reservations (all statuses)
             $reservations = Reservation::where('user_id', $user->id)
-                ->with(['business', 'messages.sender']) // Include business details and messages
+                ->with(['business', 'messages.sender', 'userBusinessRating', 'businessUserRating']) // Include business details, messages, and ratings
                 ->orderBy('date', 'asc')
                 ->orderBy('time', 'asc')
                 ->get();
@@ -114,14 +114,32 @@ class ReservationController extends Controller
             ], 422);
         }
 
-          // Validate business hours for both business owners and regular users
-        if (!$this->isTimeWithinBusinessHours($request->date, $request->time, $business)) {
-            $dayOfWeek = date('l', strtotime($request->date)); // Get day name (Monday, Tuesday, etc.)
-            
-            return response()->json([
-                'success' => false,
-                'message' => "Избраното време не е во работните часови на бизнисот за {$dayOfWeek}. Ве молиме проверете ги работните часови и изберете друго време."
-            ], 422);
+        // Check if user is a business owner
+        $isBusinessOwner = $userBusiness && $userBusiness->id === $business->id;
+
+        if ($isBusinessOwner) {
+            // Business owner creating an available slot - no business hours validation
+        } else {
+            // Regular user - check if there are available slots first
+            $availableSlot = Reservation::where('business_id', $business->id)
+                ->where('date', $request->date)
+                ->where('time', $request->time)
+                ->where('status', 'available')
+                ->first();
+
+            if ($availableSlot) {
+                // Available slot exists - allow booking even outside business hours
+            } else {
+                // No available slot - validate business hours for direct reservation
+                if (!$this->isTimeWithinBusinessHours($request->date, $request->time, $business)) {
+                    $dayOfWeek = date('l', strtotime($request->date)); // Get day name (Monday, Tuesday, etc.)
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Избраното време не е во работните часови на бизнисот за {$dayOfWeek}. Ве молиме проверете ги работните часови и изберете друго време."
+                    ], 422);
+                }
+            }
         }
 
         // Check if user is a business owner

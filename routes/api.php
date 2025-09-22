@@ -3,6 +3,7 @@ use App\Http\Controllers\AdminMessageController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CreateBusinessController;
 use App\Http\Controllers\PublicBusinessController;
+use App\Http\Controllers\RatingController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\SuperAdminController;
 
@@ -59,6 +60,7 @@ Route::get('/businesses/{id}', [PublicBusinessController::class, 'getBusiness'])
 Route::get('/businesses/{id}/available-slots', [PublicBusinessController::class, 'getAvailableSlots']);
 Route::get('/businesses/{id}/all-available-slots', [PublicBusinessController::class, 'getAllAvailableSlots']);
 Route::get('/reservations/available', [ReservationController::class, 'available']);
+Route::get('/ratings/business/{businessId}', [RatingController::class, 'getBusinessRatings']);
 // Route::middleware(['auth:sanctum','verified'])->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     // Get business form (returns business data if exists, else categories & cities)
@@ -112,6 +114,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::put('/reservations/{id}/confirm', [ReservationController::class, 'confirm']);
     Route::post('/reservations/{id}/message', [ReservationController::class, 'sendMessage']);
     Route::delete('/reservations/{id}', [ReservationController::class, 'destroy']);
+
+    // Rating routes
+    Route::post('/ratings/user', [RatingController::class, 'submitUserRating']);
+    Route::post('/ratings/business', [RatingController::class, 'submitBusinessRating']);
+    Route::get('/ratings/user/{userId}', [RatingController::class, 'getUserRatings']);
+    Route::get('/ratings/can-rate/{reservationId}', [RatingController::class, 'canRateReservation']);
     
     // Super Admin routes with middleware protection
     Route::prefix('admin')->middleware(['auth:sanctum'])->group(function () {
@@ -130,6 +138,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/users/{id}/role', [SuperAdminController::class, 'updateUserRole']);
         Route::get('/users/status/{status}', [SuperAdminController::class, 'getUsersByStatus']);
         Route::post('/users/{id}/message', [SuperAdminController::class, 'sendMessageToUser']);
+
+        // Business management routes
+        Route::get('/businesses/{id}', [SuperAdminController::class, 'getBusinessDetails']);
 
         // Business review routes
         Route::get('/businesses/{id}/review', [SuperAdminController::class, 'getBusinessForReview']);
@@ -157,6 +168,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // User messaging routes (for regular users and businesses)
     Route::get('/messages', [AdminMessageController::class, 'getMyMessages']);
     Route::post('/messages', [AdminMessageController::class, 'sendMessageToAdmin']);
+    Route::post('/messages/feedback', [AdminMessageController::class, 'submitFeedback']);
     Route::put('/messages/{messageId}/read', [AdminMessageController::class, 'markAsRead']);
     Route::put('/user-messages/{messageIndex}/read', [AdminMessageController::class, 'markUserAdminMessageAsRead']);
     Route::put('/user-messages/mark-read', [AdminMessageController::class, 'markSystemMessageAsRead']);

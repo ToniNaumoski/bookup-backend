@@ -49,6 +49,22 @@ class Reservation extends Model
     }
 
     /**
+     * Get the rating given by user to business for this reservation.
+     */
+    public function userBusinessRating()
+    {
+        return $this->hasOne(\App\Models\UserBusinessRating::class);
+    }
+
+    /**
+     * Get the rating given by business to user for this reservation.
+     */
+    public function businessUserRating()
+    {
+        return $this->hasOne(\App\Models\BusinessUserRating::class);
+    }
+
+    /**
      * The "booted" method of the model.
      */
     protected static function booted(): void

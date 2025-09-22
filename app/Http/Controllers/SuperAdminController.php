@@ -22,7 +22,7 @@ class SuperAdminController extends Controller
             ], 403);
         }
 
-        $users = User::all();
+        $users = User::with(['business', 'reservations', 'businessRatings', 'receivedRatings'])->get();
 
         return response()->json([
             'success' => true,
@@ -43,7 +43,7 @@ class SuperAdminController extends Controller
             ], 403);
         }
 
-        $businesses = Business::with('user')->get();
+        $businesses = Business::with(['user', 'ratings'])->get();
         
         return response()->json([
             'success' => true,
@@ -253,7 +253,7 @@ class SuperAdminController extends Controller
             ], 403);
         }
 
-        $business = Business::with(['user', 'reviewer', 'reservations'])->findOrFail($id);
+        $business = Business::with(['user', 'reviewer', 'reservations', 'ratings.user'])->findOrFail($id);
 
         return response()->json([
             'success' => true,
@@ -273,7 +273,7 @@ class SuperAdminController extends Controller
             ], 403);
         }
 
-        $businesses = Business::with(['user', 'reviewer'])
+        $businesses = Business::with(['user', 'reviewer', 'ratings'])
             ->whereIn('review_status', ['pending', 'needs_revision'])
             ->orderBy('created_at', 'desc')
             ->get();
@@ -508,11 +508,35 @@ class SuperAdminController extends Controller
             ], 403);
         }
 
-        $user = User::with(['business', 'reservations', 'blockedBy'])->findOrFail($id);
+        $user = User::with(['business', 'reservations', 'blockedBy', 'businessRatings', 'receivedRatings.business'])->findOrFail($id);
 
         return response()->json([
             'success' => true,
             'user' => $user
+        ]);
+    }
+
+    /**
+     * Get detailed business information
+     */
+    public function getBusinessDetails($id)
+    {
+        if (Auth::user()->role !== 'super_admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized. Super admin access required.'
+            ], 403);
+        }
+
+        $business = Business::with(['user', 'reservations', 'ratings.user'])->findOrFail($id);
+
+        \Log::info('Business details requested for ID: ' . $id);
+        \Log::info('Business ratings count: ' . $business->ratings->count());
+        \Log::info('Business ratings: ', $business->ratings->toArray());
+
+        return response()->json([
+            'success' => true,
+            'business' => $business
         ]);
     }
 
@@ -572,7 +596,7 @@ class SuperAdminController extends Controller
             ], 400);
         }
 
-        $users = User::with(['business', 'blockedBy'])
+        $users = User::with(['business', 'blockedBy', 'businessRatings', 'receivedRatings'])
             ->where('status', $status)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -646,7 +670,7 @@ class SuperAdminController extends Controller
             'pending_businesses' => Business::where('status', 'pending')->count(),
             'total_reservations' => \App\Models\Reservation::count(),
             'recent_users' => User::orderBy('created_at', 'desc')->limit(5)->get(),
-            'recent_businesses' => Business::with('user')->orderBy('created_at', 'desc')->limit(5)->get(),
+            'recent_businesses' => Business::with(['user', 'ratings'])->orderBy('created_at', 'desc')->limit(5)->get(),
         ];
 
         return response()->json([

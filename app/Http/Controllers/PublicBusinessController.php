@@ -15,8 +15,10 @@ class PublicBusinessController extends Controller
     public function getApprovedBusinesses(Request $request)
     {
         $query = Business::with(['user', 'reservations'])
-            ->where('status', 'approved')
-            ->orderBy('created_at', 'desc');
+            ->where('status', 'approved');
+
+        // Always order by created_at for now - rating sorting will be handled in PHP
+        $query->orderBy('created_at', 'desc');
 
         // Apply filters
         if ($request->has('city') && $request->city) {
@@ -39,12 +41,26 @@ class PublicBusinessController extends Controller
             });
         }
 
+        // Apply rating filter
+        if ($request->has('min_rating') && $request->min_rating) {
+            $minRating = $request->min_rating;
+            $query->whereHas('ratings', function($q) use ($minRating) {
+                $q->havingRaw('AVG(stars) >= ?', [$minRating]);
+            });
+        }
+
         // Paginate results
         $businesses = $query->paginate(12);
 
-        // Add reservation count to each business
+        // Add reservation count and ratings to each business
         $businesses->getCollection()->transform(function ($business) {
             $business->reservation_count = $business->reservations()->count();
+
+            // Get ratings data from relationship
+            $ratings = $business->ratings;
+            $business->average_rating = $ratings->avg('stars') ?? 0;
+            $business->total_ratings = $ratings->count();
+
             return $business;
         });
 
@@ -96,6 +112,11 @@ class PublicBusinessController extends Controller
             ->findOrFail($id);
 
         $business->reservation_count = $business->reservations()->count();
+
+        // Get ratings data
+        $ratings = $business->ratings;
+        $business->average_rating = $ratings->avg('stars') ?? 0;
+        $business->total_ratings = $ratings->count();
 
         return response()->json([
             'success' => true,
@@ -254,6 +275,7 @@ class PublicBusinessController extends Controller
         }
 
         // Get all available slots created by the business owner that still have capacity
+        // Return all available slots - time filtering will be done on frontend
         $availableSlots = \App\Models\Reservation::where('business_id', $business->id)
             ->where('status', 'available')
             ->where('user_id', $business->user_id) // Only slots created by business owner
@@ -261,6 +283,8 @@ class PublicBusinessController extends Controller
             ->orderBy('date', 'asc')
             ->orderBy('time', 'asc')
             ->get();
+
+        \Log::info('Returning ' . $availableSlots->count() . ' available slots (time filtering moved to frontend)');
 
         // Add current bookings count to each slot
         $availableSlots->transform(function ($slot) {
