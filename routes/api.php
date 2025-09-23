@@ -123,6 +123,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
     
     // Super Admin routes with middleware protection
     Route::prefix('admin')->middleware(['auth:sanctum'])->group(function () {
+        Route::get('/businesses/pending-reviews', [SuperAdminController::class, 'getPendingReviews']);
+        Route::post('/businesses/{id}/review', [SuperAdminController::class, 'reviewBusiness']);
+        Route::get('/businesses/{id}/review', [SuperAdminController::class, 'getBusinessForReview']);
+        Route::post('/businesses/{id}/message', [SuperAdminController::class, 'sendMessageToBusiness']);
+
         Route::get('/users', [SuperAdminController::class, 'getUsers']);
         Route::get('/businesses', [SuperAdminController::class, 'getBusinesses']);
         Route::get('/reservations', [SuperAdminController::class, 'getReservations']);
@@ -143,10 +148,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/businesses/{id}', [SuperAdminController::class, 'getBusinessDetails']);
 
         // Business review routes
-        Route::get('/businesses/{id}/review', [SuperAdminController::class, 'getBusinessForReview']);
-        Route::post('/businesses/{id}/review', [SuperAdminController::class, 'reviewBusiness']);
-        Route::post('/businesses/{id}/message', [SuperAdminController::class, 'sendMessageToBusiness']);
-        Route::get('/businesses/pending-reviews', [SuperAdminController::class, 'getPendingReviews']);
+        // Route::get('/businesses/{id}/review', [SuperAdminController::class, 'getBusinessForReview']);
+        // Route::post('/businesses/{id}/review', [SuperAdminController::class, 'reviewBusiness']);
+        // Route::post('/businesses/{id}/message', [SuperAdminController::class, 'sendMessageToBusiness']);
 
         // Admin message routes
         Route::get('/messages/all', [\App\Http\Controllers\AdminMessageController::class, 'getAllMessages']);
