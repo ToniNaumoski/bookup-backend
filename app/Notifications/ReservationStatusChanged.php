@@ -56,7 +56,7 @@ class ReservationStatusChanged extends Notification
                    ->line($this->reservation->message);
         }
 
-        $message->action('Види резервации', url('http://rezervirajonline.mk/'))
+        $message->action('Види резервации', url('https://rezervirajonline.mk/'))
                 ->line($actionText)
                 ->salutation('Со почит, Тимот на RezervirajOnline.mk');
 

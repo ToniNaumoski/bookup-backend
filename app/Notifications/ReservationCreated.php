@@ -52,7 +52,7 @@ class ReservationCreated extends Notification
                  ->line("\"{$initialMessage->message}\"");
         }
 
-        $mail->action('Види резервации', url('http://rezervirajonline.mk/'))
+        $mail->action('Види резервации', url('https://rezervirajonline.mk/'))
              ->line('Ве молиме да ја потврдите или откажете резервацијата што е можно поскоро.')
              ->salutation('Со почит, Тимот на RezervirajOnline.mk');
 

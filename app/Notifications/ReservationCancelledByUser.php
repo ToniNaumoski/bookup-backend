@@ -55,7 +55,7 @@ class ReservationCancelledByUser extends Notification
                    ->line($this->reservation->message);
         }
 
-        $message->action('Види резервации', url('http://rezervirajonline.mk/'))
+        $message->action('Види резервации', url('https://rezervirajonline.mk/'))
                 ->line('Можете да контактирате со корисникот ако е потребно.')
                 ->salutation('Со почит, Тимот на RezervirajOnline.mk');
 
