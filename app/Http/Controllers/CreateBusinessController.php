@@ -85,6 +85,10 @@ public function store(Request $request)
         ->whereNull('parent_id')
         ->value('id');
 
+    // Check if the selected city has municipalities
+    $selectedCity = City::where('name', $data['city'] ?? null)->with('municipalities')->first();
+    $cityHasMunicipalities = $selectedCity && $selectedCity->municipalities->count() > 0;
+
     $validated = Validator::make($data, [
         'name'        => ['required', 'string', 'min:3', 'max:100'],
         'description' => ['required', 'string', 'min:50', 'max:1000'],
@@ -98,7 +102,10 @@ public function store(Request $request)
                 ->where('parent_id', $mainCategoryId),
         ],
         'city'   => ['required', Rule::exists('cities', 'name')],
-        'municipality' => ['required', Rule::exists('municipalities', 'name')],
+        'municipality' => [
+            $cityHasMunicipalities ? 'required' : 'nullable',
+            Rule::exists('municipalities', 'name')
+        ],
         'street' => ['required', 'string', 'min:2', 'max:100'],
         'street_number' => ['required', 'string', 'min:1', 'max:10'],
 
@@ -182,7 +189,7 @@ public function store(Request $request)
         'main_category' => $validated['main_category'],
         'sub_category'  => $validated['sub_category'],
         'city'          => $validated['city'],
-        'municipality'  => $validated['municipality'],
+        'municipality'  => $validated['municipality'] ?? null,
         'street'        => $validated['street'],
         'street_number' => $validated['street_number'],
         'working_hours' => json_encode($data['working_hours']), // store as JSON

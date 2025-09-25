@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('admin-notifications', function ($user) {
     // Return true if the authenticated user is an admin/business owner
-    return $user->is_admin || ($user->is_business_owner ?? false);
+    return in_array($user->role, ['super_admin', 'business']);
 });
 
 Route::get('/email/verify/{id}/{hash}', function (Request $request, $id, $hash) {

@@ -191,12 +191,13 @@ class AuthController extends Controller
         $isSuspended = $user->status === 'suspended';
 
         // Check email verification for non-super-admin users
-        if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
-            Auth::logout(); // Log out the user
-            throw ValidationException::withMessages([
-                'email' => ['Ве молиме верифицирајте ја вашата емаил адреса пред да се најавите. Проверете го вашиот емаил за линк за верификација.'],
-            ]);
-        }
+        // ova go comentiram vo momentov ova e delot kade userot mu e pobarano da ja verifikuva email adresa
+        // if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
+        //     Auth::logout(); // Log out the user
+        //     throw ValidationException::withMessages([
+        //         'email' => ['Ве молиме верифицирајте ја вашата емаил адреса пред да се најавите. Проверете го вашиот емаил за линк за верификација.'],
+        //     ]);
+        // }
 
         $token = $user->createToken('api-token')->plainTextToken;
 

@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Business;
+use App\Models\AdminMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Broadcast;
 
 class SuperAdminController extends Controller
 {
@@ -184,7 +187,14 @@ class SuperAdminController extends Controller
             'remarks' => 'nullable|string|max:1000',
             'message' => 'nullable|string|max:500',
             'updated_fields' => 'nullable|array',
-            'updated_fields.*' => 'string'
+            'updated_fields.name' => 'nullable|string',
+            'updated_fields.description' => 'nullable|string',
+            'updated_fields.main_category' => 'nullable|string',
+            'updated_fields.sub_category' => 'nullable|string',
+            'updated_fields.city' => 'nullable|string',
+            'updated_fields.municipality' => 'nullable|string',
+            'updated_fields.street' => 'nullable|string',
+            'updated_fields.street_number' => 'nullable|string'
         ]);
 
         $business = Business::findOrFail($id);
@@ -193,14 +203,24 @@ class SuperAdminController extends Controller
         // Update business fields if provided
         if ($request->has('updated_fields') && is_array($request->updated_fields)) {
             foreach ($request->updated_fields as $field => $value) {
-                if (in_array($field, ['name', 'description', 'main_category', 'sub_category', 'city', 'street', 'street_number'])) {
+                if (in_array($field, ['name', 'description', 'main_category', 'sub_category', 'city', 'municipality', 'street', 'street_number'])) {
                     $business->$field = $value;
                 }
             }
         }
 
         // Update review status and admin info
-        $business->review_status = $request->action;
+        if ($request->action === 'approve') {
+            $business->review_status = 'approved';
+            $business->status = 'approved';
+        } elseif ($request->action === 'reject') {
+            $business->review_status = 'rejected';
+            $business->status = 'rejected';
+        } elseif ($request->action === 'request_changes') {
+            $business->review_status = 'needs_revision';
+            $business->status = 'pending';
+        }
+
         $business->reviewed_by = $admin->id;
         $business->last_reviewed_at = now();
 
@@ -211,26 +231,52 @@ class SuperAdminController extends Controller
 
         // Add admin message if provided
         if ($request->message) {
-            $messages = $business->admin_messages ?? [];
-            $messages[] = [
+            // Map action to message type
+            $messageType = match($request->action) {
+                'approve' => 'info',
+                'reject' => 'info',
+                'request_changes' => 'info',
+                default => 'info'
+            };
+
+            // Create AdminMessage record
+            try {
+                $adminMessage = AdminMessage::create([
+                    'sender_id' => $admin->id,
+                    'receiver_id' => $business->user->id,
+                    'message' => $request->message,
+                    'type' => $messageType,
+                    'is_read' => false
+                ]);
+            } catch (\Exception $e) {
+                // Log error but continue with business update
+                \Log::error('Failed to create admin message: ' . $e->getMessage());
+            }
+
+            // Also store in business for admin reference
+            $businessMessages = $business->admin_messages ?? [];
+            $businessMessages[] = [
                 'message' => $request->message,
                 'type' => $request->action,
                 'admin_id' => $admin->id,
                 'admin_name' => $admin->name,
                 'created_at' => now()->toISOString()
             ];
-            $business->admin_messages = $messages;
+            $business->admin_messages = $businessMessages;
+
+            // Send email to business owner
+            try {
+                Mail::raw($request->message, function ($message) use ($business, $admin, $request) {
+                    $message->to($business->user->email)
+                            ->subject('Admin Review Message - ' . ucfirst($request->action))
+                            ->from(config('mail.from.address'), config('mail.from.name'));
+                });
+            } catch (\Exception $e) {
+                // Log email error but don't fail the request
+                \Log::error('Failed to send admin review email: ' . $e->getMessage());
+            }
         }
 
-        // Update main status based on action
-        if ($request->action === 'approve') {
-            $business->status = 'approved';
-        } elseif ($request->action === 'reject') {
-            $business->status = 'rejected';
-        } elseif ($request->action === 'request_changes') {
-            $business->status = 'pending';
-            $business->review_status = 'needs_revision';
-        }
 
         $business->save();
 
