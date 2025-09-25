@@ -78,6 +78,9 @@ Route::post('/register/user', [AuthController::class, 'registerUser']);
 Route::post('/register/business', [AuthController::class, 'registerBusiness']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Public resend verification email (no auth required)
+Route::post('/email/resend-verification', [AuthController::class, 'resendVerificationEmail']);
+
 // // Test email endpoint
 // Route::post('/test-email', function (Request $request) {
 //     $request->validate([

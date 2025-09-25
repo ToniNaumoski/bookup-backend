@@ -73,12 +73,22 @@ class AuthController extends Controller
             "name" => $user->name,
         ];
 
-        $user->sendEmailVerificationNotification();
+        try {
+            $user->sendEmailVerificationNotification();
+            $emailSent = true;
+        } catch (\Exception $e) {
+            // Log the error but don't fail registration
+            \Log::error('Failed to send verification email to user: ' . $user->email . ' - ' . $e->getMessage());
+            $emailSent = false;
+        }
 
     
         return response()->json([
-            'message' => 'Корисникот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите.',
+            'message' => $emailSent
+                ? 'Корисникот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите.'
+                : 'Корисникот е регистриран успешно! Сепак, имаше проблем со испраќањето на емаилот за верификација. Ве молиме контактирајте со поддршка или обидете се да го испратите повторно.',
             'requires_verification' => true,
+            'email_sent' => $emailSent,
         ], 201);
     }
 
@@ -141,17 +151,27 @@ class AuthController extends Controller
             'role' => 'business'
         ]);
 
-        
+
         $response = [
             "name" =>  $business->name,
         ];
 
-        $business->sendEmailVerificationNotification();
+        try {
+            $business->sendEmailVerificationNotification();
+            $emailSent = true;
+        } catch (\Exception $e) {
+            // Log the error but don't fail registration
+            \Log::error('Failed to send verification email to business: ' . $business->email . ' - ' . $e->getMessage());
+            $emailSent = false;
+        }
 
     
         return response()->json([
-            'message' => 'Бизнисот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите. Проверете го вашиот inbox/spam фолдер.',
+            'message' => $emailSent
+                ? 'Бизнисот е регистриран успешно! Проверете ја вашата емаил адреса за линк за верификација. Без верификација нема да можете да се најавите. Проверете го вашиот inbox/spam фолдер.'
+                : 'Бизнисот е регистриран успешно! Сепак, имаше проблем со испраќањето на емаилот за верификација. Ве молиме контактирајте со поддршка или обидете се да го испратите повторно.',
             'requires_verification' => true,
+            'email_sent' => $emailSent,
         ], 201);
     
         // return response()->json([
@@ -190,14 +210,14 @@ class AuthController extends Controller
         // Suspended users can log in but have restrictions
         $isSuspended = $user->status === 'suspended';
 
-        // Check email verification for non-super-admin users
-        // ova go comentiram vo momentov ova e delot kade userot mu e pobarano da ja verifikuva email adresa
-        // if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
-        //     Auth::logout(); // Log out the user
-        //     throw ValidationException::withMessages([
-        //         'email' => ['Ве молиме верифицирајте ја вашата емаил адреса пред да се најавите. Проверете го вашиот емаил за линк за верификација.'],
-        //     ]);
-        // }
+       // Check email verification for non-super-admin users
+       // ova go comentiram vo momentov ova e delot kade userot mu e pobarano da ja verifikuva email adresa
+        if ($user->role !== 'super_admin' && !$user->hasVerifiedEmail()) {
+            Auth::logout(); // Log out the user
+            throw ValidationException::withMessages([
+                'email' => ['Ве молиме верифицирајте ја вашата емаил адреса пред да се најавите. Проверете го вашиот емаил за линк за верификација.'],
+            ]);
+        }
 
         $token = $user->createToken('api-token')->plainTextToken;
 
@@ -232,5 +252,38 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Одјавени сте']);
+    }
+
+    // Public resend verification email (no authentication required)
+    public function resendVerificationEmail(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ], [
+            'email.required' => __('validation.required', ['attribute' => __('validation.attributes.email')]),
+            'email.email' => __('validation.email', ['attribute' => __('validation.attributes.email')]),
+            'email.exists' => 'Нема корисник со оваа емаил адреса.',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        // Check if user is already verified
+        if ($user->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Оваа емаил адреса е веќе верифицирана.'
+            ], 400);
+        }
+
+        try {
+            $user->sendEmailVerificationNotification();
+            return response()->json([
+                'message' => 'Линк за верификација е испратен на вашата емаил адреса!'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to resend verification email to: ' . $user->email . ' - ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Грешка при испраќање на емаилот. Ве молиме обидете се повторно подоцна.'
+            ], 500);
+        }
     }
 }
