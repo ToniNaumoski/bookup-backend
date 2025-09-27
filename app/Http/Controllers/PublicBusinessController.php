@@ -9,71 +9,149 @@ use Illuminate\Http\Request;
 
 class PublicBusinessController extends Controller
 {
-    /**
-     * Get all approved businesses with pagination
-     */
-    public function getApprovedBusinesses(Request $request)
-    {
-        $query = Business::with(['user', 'reservations'])
-            ->where('status', 'approved');
+    // /**
+    //  * Get all approved businesses with pagination
+    //  */
+    // public function getApprovedBusinesses(Request $request)
+    // {
+    //     $query = Business::with(['user', 'reservations'])
+    //         ->where('status', 'approved')
+    //         ->whereHas('user', function($q) {
+    //             $q->where('status', 'active');
+    //         });
 
-        // Always order by created_at for now - rating sorting will be handled in PHP
-        $query->orderBy('created_at', 'desc');
+    //     // Always order by created_at for now - rating sorting will be handled in PHP
+    //     $query->orderBy('created_at', 'desc');
 
-        // Apply filters
-        if ($request->has('city') && $request->city) {
-            $query->where('city', $request->city);
-        }
+    //     // Apply filters
+    //     if ($request->has('city') && $request->city) {
+    //         $query->where('city', $request->city);
+    //     }
 
-        if ($request->has('municipality') && $request->municipality) {
-            $query->where('municipality', $request->municipality);
-        }
+    //     if ($request->has('municipality') && $request->municipality) {
+    //         $query->where('municipality', $request->municipality);
+    //     }
 
-        if ($request->has('category') && $request->category) {
-            $query->where('main_category', $request->category);
-        }
+    //     if ($request->has('category') && $request->category) {
+    //         $categories = is_array($request->category) ? $request->category : [$request->category];
+    //         $query->whereIn('main_category', $categories);
+    //     }
 
-        if ($request->has('search') && $request->search) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+    //     if ($request->has('subcategory') && $request->subcategory) {
+    //         $subcategories = is_array($request->subcategory) ? $request->subcategory : [$request->subcategory];
+    //         $query->whereIn('sub_category', $subcategories);
+    //     }
+
+    //     if ($request->has('search') && $request->search) {
+    //         $search = $request->search;
+    //         $query->where(function($q) use ($search) {
+    //             $q->where('name', 'like', "%{$search}%")
+    //               ->orWhere('description', 'like', "%{$search}%");
+    //         });
+    //     }
+
+    //     // Apply rating filter
+    //     if ($request->has('min_rating') && $request->min_rating) {
+    //         $minRating = $request->min_rating;
+    //         $query->whereHas('ratings', function($q) use ($minRating) {
+    //             $q->havingRaw('AVG(stars) >= ?', [$minRating]);
+    //         });
+    //     }
+
+    //     // Paginate results
+    //     $businesses = $query->paginate(12);
+
+    //     // Add reservation count and ratings to each business
+    //     $businesses->getCollection()->transform(function ($business) {
+    //         $business->reservation_count = $business->reservations()->count();
+
+    //         // Get ratings data from relationship
+    //         $ratings = $business->ratings;
+    //         $business->average_rating = $ratings->avg('stars') ?? 0;
+    //         $business->total_ratings = $ratings->count();
+
+    //         return $business;
+    //     });
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'businesses' => $businesses,
+    //         'total' => $businesses->total(),
+    //         'current_page' => $businesses->currentPage(),
+    //         'last_page' => $businesses->lastPage(),
+    //         'per_page' => $businesses->perPage()
+    //     ]);
+    // }
+
+
+            /**
+         * Get all approved businesses with pagination
+         */
+        public function getApprovedBusinesses(Request $request)
+        {
+            $query = Business::with(['user', 'reservations'])
+                ->withAvg('ratings', 'stars') // ✅ calculate avg rating in query
+                ->where('status', 'approved')
+                ->whereHas('user', function($q) {
+                    $q->where('status', 'active');
+                });
+
+            // Always order by created_at for now - rating sorting will be handled in PHP
+            $query->orderBy('created_at', 'desc');
+
+            // Apply filters
+            if ($request->has('city') && $request->city) {
+                $query->where('city', $request->city);
+            }
+
+            if ($request->has('municipality') && $request->municipality) {
+                $query->where('municipality', $request->municipality);
+            }
+
+            if ($request->has('category') && $request->category) {
+                $categories = is_array($request->category) ? $request->category : [$request->category];
+                $query->whereIn('main_category', $categories);
+            }
+
+            if ($request->has('subcategory') && $request->subcategory) {
+                $subcategories = is_array($request->subcategory) ? $request->subcategory : [$request->subcategory];
+                $query->whereIn('sub_category', $subcategories);
+            }
+
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+
+            // ✅ Apply rating filter safely
+            if ($request->has('min_rating') && $request->min_rating) {
+                $query->having('ratings_avg_stars', '>=', $request->min_rating);
+            }
+
+            // Paginate results
+            $businesses = $query->paginate(12);
+
+            // Add reservation count and ratings to each business
+            $businesses->getCollection()->transform(function ($business) {
+                $business->reservation_count = $business->reservations()->count();
+                $business->average_rating   = $business->ratings_avg_stars ?? 0; // ✅ use withAvg
+                $business->total_ratings    = $business->ratings()->count();
+
+                return $business;
             });
+
+            return response()->json([
+                'success'      => true,
+                'businesses'   => $businesses,
+                'total'        => $businesses->total(),
+                'current_page' => $businesses->currentPage(),
+                'last_page'    => $businesses->lastPage(),
+                'per_page'     => $businesses->perPage()
+            ]);
         }
-
-        // Apply rating filter
-        if ($request->has('min_rating') && $request->min_rating) {
-            $minRating = $request->min_rating;
-            $query->whereHas('ratings', function($q) use ($minRating) {
-                $q->havingRaw('AVG(stars) >= ?', [$minRating]);
-            });
-        }
-
-        // Paginate results
-        $businesses = $query->paginate(12);
-
-        // Add reservation count and ratings to each business
-        $businesses->getCollection()->transform(function ($business) {
-            $business->reservation_count = $business->reservations()->count();
-
-            // Get ratings data from relationship
-            $ratings = $business->ratings;
-            $business->average_rating = $ratings->avg('stars') ?? 0;
-            $business->total_ratings = $ratings->count();
-
-            return $business;
-        });
-
-        return response()->json([
-            'success' => true,
-            'businesses' => $businesses,
-            'total' => $businesses->total(),
-            'current_page' => $businesses->currentPage(),
-            'last_page' => $businesses->lastPage(),
-            'per_page' => $businesses->perPage()
-        ]);
-    }
-
     /**
      * Get filter options (cities and categories from approved businesses)
      */
@@ -86,11 +164,17 @@ class PublicBusinessController extends Controller
             ];
         });
 
-        $categories = Business::where('status', 'approved')
-            ->whereNotNull('main_category')
-            ->distinct()
-            ->pluck('main_category')
-            ->sort()
+        $categories = Category::with('children')
+            ->whereNull('parent_id')
+            ->distinct('name')
+            ->get()
+            ->map(function ($category) {
+                return [
+                    'name' => $category->name,
+                    'subcategories' => $category->children->pluck('name')->unique()->sort()->values()
+                ];
+            })
+            ->unique('name')
             ->values();
 
         return response()->json([
@@ -109,6 +193,9 @@ class PublicBusinessController extends Controller
     {
         $business = Business::with(['user', 'reservations'])
             ->where('status', 'approved')
+            ->whereHas('user', function($q) {
+                $q->where('status', 'active');
+            })
             ->findOrFail($id);
 
         $business->reservation_count = $business->reservations()->count();
@@ -129,10 +216,18 @@ class PublicBusinessController extends Controller
      */
     public function getAvailableSlots($id, Request $request)
     {
-        $business = Business::findOrFail($id);
+        $business = Business::with('user')->findOrFail($id);
 
         // Check if business is approved
         if ($business->status !== 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Овој бизнис не е достапен'
+            ], 404);
+        }
+
+        // Check if user is active
+        if ($business->user->status !== 'active') {
             return response()->json([
                 'success' => false,
                 'message' => 'Овој бизнис не е достапен'
@@ -264,10 +359,18 @@ class PublicBusinessController extends Controller
      */
     public function getAllAvailableSlots($id)
     {
-        $business = Business::findOrFail($id);
+        $business = Business::with('user')->findOrFail($id);
 
         // Check if business is approved
         if ($business->status !== 'approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Овој бизнис не е достапен'
+            ], 404);
+        }
+
+        // Check if user is active
+        if ($business->user->status !== 'active') {
             return response()->json([
                 'success' => false,
                 'message' => 'Овој бизнис не е достапен'

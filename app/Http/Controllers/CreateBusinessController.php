@@ -113,7 +113,34 @@ public function store(Request $request)
         'working_hours' => ['required', 'array'],
 
         'working_hours.*.open'   => ['nullable', 'date_format:H:i'],
-        'working_hours.*.close'  => ['nullable', 'date_format:H:i', 'after:working_hours.*.open'],
+        'working_hours.*.close'  => [
+            'nullable',
+            'date_format:H:i',
+            function ($attribute, $value, $fail) use ($data) {
+                if (empty($value)) return;
+
+                // Extract day from attribute, e.g., working_hours.monday.close -> monday
+                $parts = explode('.', $attribute);
+                if (count($parts) >= 3) {
+                    $day = $parts[1];
+                    $openTime = $data['working_hours'][$day]['open'] ?? null;
+
+                    if (!empty($openTime)) {
+                        $open = \Carbon\Carbon::createFromFormat('H:i', $openTime);
+                        $close = \Carbon\Carbon::createFromFormat('H:i', $value);
+
+                        // If close is before open, assume next day
+                        if ($close->lessThan($open)) {
+                            $close->addDay();
+                        }
+
+                        if (!$close->greaterThan($open)) {
+                            $fail('Времето за затворање мора да биде после времето за отворање.');
+                        }
+                    }
+                }
+            }
+        ],
         'working_hours.*.closed' => ['boolean'],
 
         // Gallery - only required for new businesses, optional for updates
@@ -144,7 +171,6 @@ public function store(Request $request)
         'working_hours.required' => 'Работното време е задолжително.',
         'working_hours.*.open.date_format' => 'Времето за отворање мора да биде во формат ЧЧ:ММ.',
         'working_hours.*.close.date_format' => 'Времето за затворање мора да биде во формат ЧЧ:ММ.',
-        'working_hours.*.close.after' => 'Времето за затворање мора да биде после времето за отворање.',
         'working_hours.*.closed.boolean' => 'Полето за затворено мора да биде да или не.',
         'gallery.required' => 'Мора да прикачите најмалку една слика.',
         'gallery.*.image' => 'Секоја датотека мора да биде слика.',
