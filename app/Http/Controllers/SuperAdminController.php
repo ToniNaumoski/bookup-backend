@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Business;
 use App\Models\AdminMessage;
+use App\Mail\BusinessReviewEmail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
@@ -115,7 +116,28 @@ class SuperAdminController extends Controller
         }
 
         $business = Business::findOrFail($id);
-        $business->update(['status' => 'approved']);
+        $admin = Auth::user();
+
+        $business->update([
+            'status' => 'approved',
+            'review_status' => 'approved',
+            'reviewed_by' => $admin->id,
+            'last_reviewed_at' => now()
+        ]);
+
+        // Send email notification to business owner
+        try {
+            Mail::to($business->user->email)->send(new BusinessReviewEmail(
+                $business,
+                $admin,
+                'approve',
+                null, // No specific message
+                null  // No remarks
+            ));
+        } catch (\Exception $e) {
+            // Log email error but don't fail the request
+            \Log::error('Failed to send business approval email: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
@@ -138,7 +160,28 @@ class SuperAdminController extends Controller
         }
 
         $business = Business::findOrFail($id);
-        $business->update(['status' => 'rejected']);
+        $admin = Auth::user();
+
+        $business->update([
+            'status' => 'rejected',
+            'review_status' => 'rejected',
+            'reviewed_by' => $admin->id,
+            'last_reviewed_at' => now()
+        ]);
+
+        // Send email notification to business owner
+        try {
+            Mail::to($business->user->email)->send(new BusinessReviewEmail(
+                $business,
+                $admin,
+                'reject',
+                null, // No specific message
+                null  // No remarks
+            ));
+        } catch (\Exception $e) {
+            // Log email error but don't fail the request
+            \Log::error('Failed to send business rejection email: ' . $e->getMessage());
+        }
 
         return response()->json([
             'success' => true,
@@ -263,18 +306,20 @@ class SuperAdminController extends Controller
                 'created_at' => now()->toISOString()
             ];
             $business->admin_messages = $businessMessages;
+        }
 
-            // Send email to business owner
-            try {
-                Mail::raw($request->message, function ($message) use ($business, $admin, $request) {
-                    $message->to($business->user->email)
-                            ->subject('Admin Review Message - ' . ucfirst($request->action))
-                            ->from(config('mail.from.address'), config('mail.from.name'));
-                });
-            } catch (\Exception $e) {
-                // Log email error but don't fail the request
-                \Log::error('Failed to send admin review email: ' . $e->getMessage());
-            }
+        // Always send email notification for business review actions
+        try {
+            Mail::to($business->user->email)->send(new BusinessReviewEmail(
+                $business,
+                $admin,
+                $request->action,
+                $request->message,
+                $request->remarks
+            ));
+        } catch (\Exception $e) {
+            // Log email error but don't fail the request
+            \Log::error('Failed to send admin review email: ' . $e->getMessage());
         }
 
 
